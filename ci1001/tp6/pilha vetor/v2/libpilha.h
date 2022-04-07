@@ -1,6 +1,6 @@
 #ifndef _LIBpilha_t_H
 #define _LIBpilha_t_H
-
+#define MAX 20
 typedef struct {
     char *elems;   /* espaco armazenamento dos elementos */
     int nelem;     /* qtde elementos */

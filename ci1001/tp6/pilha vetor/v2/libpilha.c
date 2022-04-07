@@ -7,8 +7,8 @@ pilha_t* inicializa_pilha(int nelem){
     pilha_t *pilha;
 
     if((pilha = (pilha_t *)malloc(sizeof(pilha_t)))){
-        if(pilha->elems = (char *)malloc(nelem * sizeof(char))){
-            pilha->nelem = 0;
+        if((pilha->elems = (char *)malloc(nelem * sizeof(char)))){
+            pilha->nelem = nelem;
             pilha->topo = -1;
             return pilha;
         }
@@ -21,8 +21,8 @@ pilha_t* inicializa_pilha(int nelem){
 /* Insere o char elem na pilha. Retorna o número de elementos na pilha 
  * em caso de sucesso e -1 em caso de pilha cheia */
 int push(pilha_t* pilha, char elem){
-
-
+    if(pilha->nelem <= pilha->topo+1)
+        return -1;
     pilha->topo++;
     pilha->elems[pilha->topo] = elem;
     pilha->nelem++;
