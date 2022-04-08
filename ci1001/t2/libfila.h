@@ -55,7 +55,7 @@ int queue (fila_t* f, int elemento);
  * Remove elemento do inicio da fila (politica FIFO) e o retorna.
  * Retorna 1 se a operacao foi bem sucedida e 0 caso contrario.
 */
-int dequeue (fila_t* f, int* elemento);
+int dequeue (fila_t* f, int elemento);
 
 /*
  * Imprime a fila, do inicio ate o fim, este por ultimo, sem espaco no final.

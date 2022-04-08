@@ -1,61 +1,95 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include "libfila.h"
+
 /*
- * TAD fila
- * Autores:
- *    André Ricardo Abed Gregio
- *    Marcos Alexandre Castilho
- *    Luis Carlos Erpen de Bona
- *    Luiz Carlos Pessoa Albini
- *
- * Versao 1.0.0 de 04/04/2022
+ * Cria um nodo com chave elemento e o retorna, se falhar retorna NULL.
 */
-
-#ifndef _LIBfila_t_H
-#define _LIBfila_t_H
-
-struct nodo_f {
-    int chave;            /* fila de numeros inteiros */
-    struct nodo_f *prox;  /* ponteiro para o proximo  */
-};
-typedef struct nodo_f nodo_f_t;
-
-struct fila {
-    nodo_f_t* ini;        /* ponteiro para o inicio da lista */
-    nodo_f_t* fim;        /* ponteiro para o fim da lista    */
-    int tamanho;          /* numero de elementos na lista    */
-};
-typedef struct fila fila_t;
+nodo_f_t* nodo_cria(int elemento){
+    nodo_f_t *nodo;
+    if((nodo = (nodo_f_t *)malloc(sizeof(nodo_f_t)))){
+        nodo->chave = elemento;
+        nodo->prox = NULL;
+        return nodo;
+    }
+    return NULL;
+}
 
 /*
  * Cria uma fila vazia e a retorna, se falhar retorna NULL.
 */
-fila_t* fila_cria ();
+fila_t* fila_cria (){
+    fila_t *f;
+    if((f = (fila_t *)malloc(sizeof(fila_t)))){
+        f->fim = f->ini = NULL;
+        f->tamanho = 0;
+        return f;
+    }
+    return NULL;
+}
 
 /*
  * Remove todos os elementos da fila, libera espaco e devolve NULL.
 */
-fila_t* fila_destroi (fila_t* f);
+fila_t* fila_destroi (fila_t* f){
+    while(fila_vazia(f) != 1){
+        dequeue(f, f->ini->chave);
+    }
+    free(f);
+    return NULL;
+}
 
 /*
  * Retorna 1 se a fila esta vazia e 0 caso contrario.
 */
-int fila_vazia (fila_t* f);
+int fila_vazia (fila_t* f){
+    if(fila_tamanho(f) == 0)
+        return 1;
+    return 0;
+}
 
 /*
  * Retorna o tamanho da fila, isto eh, o numero de elementos presentes nela.
 */
-int fila_tamanho (fila_t* f);
+int fila_tamanho (fila_t* f){
+    return f->tamanho;
+}
 
 /*
  * Insere o elemento no final da fila (politica FIFO).
  * Retorna 1 se a operacao foi bem sucedida e 0 caso contrario.
 */
-int queue (fila_t* f, int elemento);
+int queue (fila_t* f, int elemento){
+    nodo_f_t *nodo;
+    if( (nodo = nodo_cria(elemento)) != NULL){
+        if(fila_vazia(f) == 1)
+            f->ini = nodo;
+        else
+            f->fim->prox = nodo;
 
+        f->fim = nodo;
+        f->tamanho++;
+        return 1;
+    }
+    return 0;
+}
+    
 /*
  * Remove elemento do inicio da fila (politica FIFO) e o retorna.
  * Retorna 1 se a operacao foi bem sucedida e 0 caso contrario.
 */
-int dequeue (fila_t* f, int* elemento);
+int dequeue (fila_t* f, int elemento){
+    
+    if((f->ini->chave != elemento) || (fila_vazia(f) == 1))
+        return 0;
+
+    nodo_f_t *inicio;
+    inicio = f->ini;
+    f->ini = f->ini->prox;
+    f->tamanho--;
+    free(inicio);
+    return 1;   
+}
 
 /*
  * Imprime a fila, do inicio ate o fim, este por ultimo, sem espaco no final.
@@ -63,6 +97,14 @@ int dequeue (fila_t* f, int* elemento);
  * Esta funcao eh somente para facilitar teus testes.
  * Normalmente ela nao existe nas implementacoes de um TAD fila.
 */
-void fila_imprime (fila_t* f);
-
-#endif
+void fila_imprime (fila_t* f){
+    if(f->tamanho == 0)
+        return;
+    nodo_f_t *nodo;
+    nodo = f->ini;
+    while(nodo->prox->prox != NULL ){
+        printf("%d ", nodo->chave);
+        nodo = nodo->prox;
+    }
+    printf("%d ", nodo->chave);
+}
