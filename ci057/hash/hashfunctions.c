@@ -27,62 +27,40 @@ int find_key (int key, int ht[COL][M]) {
         return hash_t2(key);
     
 }
-
-entry_t *cria_entrada(int valor, int table){
-    entry_t *nova_entrada;
-
-    nova_entrada = (entry_t *) malloc(sizeof(entry_t));
-    
-    nova_entrada->key = valor;
-    nova_entrada->table = table;
-
-    return nova_entrada;
-}
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~ Fim das Funcoes Internas ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-entries_t *cria_entrada_list(){
-    entries_t *nova_lista;
-    nova_lista = (entries_t *) malloc(sizeof(entries_t));
-    nova_lista->tam = 0;
+array_t *new_arrayt(){
+    array_t *newarray;
     
-    return nova_lista;
+    newarray = (array_t *) malloc(sizeof(array_t));
+    
+    newarray->tam = 0;
+
+    return newarray;
 }
 
-void insere_valor(int valor, entries_t *entradas, int table){
-    int i, pos;
-    entry_t *nova_entrada;
-    nova_entrada = cria_entrada(valor, table);
-    if(entradas->tam == 0) {
-        entradas->entrada_list[0] = nova_entrada;
-        entradas->tam++;
-        return;
+void insere_valor(int valor, array_t *vetor){
+    int pos = vetor->tam;
+    if(vetor->tam != 00){
+            while((valor < vetor->entradas[pos-1]) && (pos > 0)){
+                vetor->entradas[pos] = vetor->entradas[pos-1];
+                pos--;
+            }
     }
-
-    pos = 0;
-    while(valor > entradas->entrada_list[pos]->key && pos < entradas->tam-1){
-        pos++;
-    }
-    pos++;
-    for(i = entradas->tam; i >= pos+1; i--){
-        entradas->entrada_list[i] = entradas->entrada_list[i-1];
-    }   
-    
-    entradas->entrada_list[pos] = nova_entrada;
-    entradas->tam++;
+    vetor->entradas[pos] = valor;
+    vetor->tam++;
 }
 
-void remove_valor(int valor, entries_t *entradas){
-    int i, pos;
+void remove_valor(int valor, array_t *vetor){
+    int i, pos = 0;
     
-    pos = 0;
-    while(entradas->entrada_list[pos]->key != valor){
+    while((valor != vetor->entradas[pos]) && (pos !=vetor->tam))
         pos++;
-    }
 
-    for(i = pos; i < entradas->tam - 1; i++)
-        entradas->entrada_list[i] = entradas->entrada_list[i+1];
-    
-    entradas->tam--;
+    for(i = pos; i< vetor->tam; i++){
+        vetor->entradas[i] = vetor->entradas[i+1];
+    }
+    vetor->tam--;
 }
 
 void init_table(int ht[COL][M]){
@@ -94,19 +72,17 @@ void init_table(int ht[COL][M]){
     }
 }
 
-int include_key(int key, int ht[COL][M] ) {
+void include_key(int key, int ht[COL][M] ) {
     int h1 = hash_t1(key);
     if(ht[0][h1] == -1 || ht[0][h1] == -2){
         ht[0][h1] = key;
-        return 1;
+        return;
     } else if(ht[0][h1] == key)
-        return 0;
+        return;
 
     int h2 = hash_t2(ht[0][h1]);
     ht[1][h2] = ht[0][h1];
-    ht[0][h1] = key;
-    return 2;
-        
+    ht[0][h1] = key;        
 }
 
 int remove_key(int key, int ht[COL][M]) { 
@@ -124,10 +100,13 @@ int remove_key(int key, int ht[COL][M]) {
     
 } 
 
-void print_table(entries_t *entradas, int ht[COL][M]){
+void print_table(array_t *vetor, int ht[COL][M]){
     int i;
-    for(i = 0 ; i <  entradas->tam; i++){
-        int pos = find_key(entradas->entrada_list[i]->key, ht);
-        printf("%d,T%d,%d\n", entradas->entrada_list[i]->key, entradas->entrada_list[i]->table, pos);
+    for(i = 0; i < vetor->tam; i++){
+        int pos = find_key(vetor->entradas[i], ht);
+        if(ht[0][pos] == vetor->entradas[i])
+            printf("%d,T1,%d\n", vetor->entradas[i], pos);
+        else 
+            printf("%d,T2,%d\n", vetor->entradas[i], pos);
     }
 }
