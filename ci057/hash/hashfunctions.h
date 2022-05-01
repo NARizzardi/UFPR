@@ -1,26 +1,21 @@
 #define COL 2
 #define M 11
 
-typedef struct entry{
-    int key;
-    int table;
-} entry_t;
-
-typedef struct entries{
-    entry_t *entrada_list[COL*M];
+typedef struct array{
+    int entradas[COL*M];
     int tam;
-} entries_t;
+} array_t;
 
-entries_t *cria_entrada_list();
+array_t *new_arrayt();
 
-void insere_valor(int valor, entries_t *entradas, int table);
+void insere_valor(int valor, array_t *vetor);
 
-void remove_valor(int valor, entries_t *entradas);
+void remove_valor(int valor, array_t *vetor);
 
 void init_table (int ht[COL][M]);
 
-int include_key (int key, int ht[COL][M]);
+void include_key (int key, int ht[COL][M]);
 
 int remove_key (int key, int ht[COL][M]);
 
-void print_table(entries_t *entradas, int ht[COL][M]);
+void print_table(array_t *vetor, int ht[COL][M]);
