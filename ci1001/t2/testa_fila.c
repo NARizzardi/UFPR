@@ -3,81 +3,45 @@
 #include "libfila.h"
 
 int main() {
-    fila_t *fila1, *fila2; /* Declaração de 2 filas para teste */
-    int elemento; /* Variavel que recebe os elementos removidos das filas */
-    int count; /* contador para os loops */
 
-    printf("\n");
-    printf("------------------------------------------------------------------\n");
-    printf("Testando a criacao das filas..\n");
-    printf("\n");
+    /* Declaracao das variaveis */
+    fila_t* fila_1;
+    fila_t* fila_2;
+    int elemento;
+    int index;
+    /* Criacao das filas */
+    fila_1 = fila_cria();
+    fila_2 = fila_cria();
 
-    fila1 = fila_cria ();
-    printf("O endereço da primeira fila eh: %p\n", &fila1);
-    fila2 = fila_cria ();
-    printf("O endereço da primeira fila eh: %p\n", &fila2);
+    printf("/* Imprime o tamanho das filas para verificar que foram criadas com sucesso */");
+    printf("\nfila: 1 tamanho: %d\n", fila_tamanho(fila_1));
+    printf("fila: 2 tamanho: %d\n", fila_tamanho(fila_2));
 
-    printf("\n");
-    printf("------------------------------------------------------------------\n");
-    printf("Inserindo elementos nas filas...\n");
-    printf("\n");
-
-    for (count = 1; count <= 6; count++) {
-        if (queue (fila1, count*2)) /* inserindo numeros multiplos de 2 */
-            printf("O numero %d foi inserido corretamente na fila 1, o tamanho atual da fila é: %d\n", count*2, fila_tamanho (fila1));
-        else printf("Nao foi possivel inserir numero %d, o tamanho atual da fila 1 é: %d\n", count*2, fila_tamanho (fila1));
+    printf("\n\n/* Insere elementos nas filas */\n");
+    for(index = 0; index < 15; index++){
+        printf("Inserindo elemento: %d na fila: 1\n", index);
+        if(queue(fila_1, index) == 0)
+            printf("erro ao inserir\n");
     }
-    printf("------------------------------------------------------------------\n");
-    for (count = 1; count <= 6; count++) {
-        if (queue (fila2, count*3)) /* inserindo numeros multiplos de 3 */
-            printf("O numero %d foi inserido corretamente na fila 2, o tamanho atual da fila é: %d\n", count*3, fila_tamanho (fila2));
-        else printf("Nao foi possivel inserir numero %d, o tamanho atual da fila 2 é: %d\n", count*3, fila_tamanho (fila2));
-    }
-
+    printf("\n\n");
+    for(index = 15; index > 0; index--){
+        printf("Inserindo elemento: %d na fila: 2\n", index);
+        if(queue(fila_2, index) == 0)
+            printf("erro ao inserir\n");
+    }   
+    printf("\n\n/* Imprime as filas apos inserir os elementos */\n");
+    fila_imprime(fila_1);     
     printf("\n");
-    printf("------------------------------------------------------------------\n");
-    printf("Retirando elementos das filas...\n");
-    printf("\n");
+    fila_imprime(fila_2);
 
-    for (count = 1; count <= 7; count++) {
-        if (dequeue (fila1, &elemento)) /* inserindo numeros multiplos de 5 */
-            printf("O numero %d foi removido da fila 1! O tamanhao da fila eh: %d\n", elemento, fila_tamanho (fila1));
-        else printf("Nao foi possivel remover o numero, fila 1 zerada\n");
-    }
-    printf("------------------------------------------------------------------\n");
-    for (count = 1; count <= 7; count++) {
-        if (dequeue (fila2, &elemento)) /* inserindo numeros multiplos de 5 */
-            printf("O numero %d foi removido da fila 2! O tamanhao da fila eh: %d\n", elemento, fila_tamanho (fila2));
-        else printf("Nao foi possivel remover o numero, fila 2 zerada\n");
-    }
+    printf("\n\n/* Removendo o primeiro elemento de cada fila */\n");
+    if(dequeue(fila_2, &elemento) == 1)
+        printf("elemento: %d removido da fila 2\n", elemento);
+    if(dequeue(fila_1, &elemento) == 1)
+        printf("elemento: %d removido da fila 1", elemento);
 
-    printf("\n");
-    printf("------------------------------------------------------------------\n");
-    printf("Preenchendo as filas novamente...\n");
-    printf("\n");
-
-    for (count = 1; count <= 6; count++) {
-        if (queue (fila1, count*2)) /* inserindo numeros multiplos de 2 */
-            printf("O numero %d foi inserido corretamente na fila 1, o tamanho atual da fila é: %d\n", count*2, fila_tamanho (fila1));
-        else printf("Nao foi possivel inserir numero %d, o tamanho atual da fila 1 é: %d\n", count*2, fila_tamanho (fila1));
-    }
-    printf("------------------------------------------------------------------\n");
-    for (count = 1; count <= 6; count++) {
-        if (queue (fila2, count*3)) /* inserindo numeros multiplos de 3 */
-            printf("O numero %d foi inserido corretamente na fila 2, o tamanho atual da fila é: %d\n", count*3, fila_tamanho (fila2));
-        else printf("Nao foi possivel inserir numero %d, o tamanho atual da fila 2 é: %d\n", count*3, fila_tamanho (fila2));
-    }
-
-    printf("Liberando a memoria utilizada pela fila 1...\n");
-    fila1 = fila_destroi (fila1);
-    printf("fila 1 corretamente liberada, apontando para: %p\n", fila1);
-    printf("Liberando a memoria utilizada pela fila 2...\n");
-    fila2 = fila_destroi (fila2);
-    printf("fila 2 corretamente liberada, apontando para: %p\n", fila2);
-
-    printf("\n");
-    printf("FIM DO TESTE\n");
-    printf("------------------------------------------------------------------\n");
-    printf("------------------------------------------------------------------\n");
+    printf("\n\n/* Final do programa liberando espaços de memoria*/\n");
+    fila_destroi(fila_1);
+    fila_destroi(fila_2);
     return 0;
 }

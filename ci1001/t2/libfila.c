@@ -32,8 +32,9 @@ fila_t* fila_cria (){
  * Remove todos os elementos da fila, libera espaco e devolve NULL.
 */
 fila_t* fila_destroi (fila_t* f){
+    int elemento;
     while(fila_vazia(f) != 1){
-        dequeue(f, f->ini->chave);
+        dequeue(f, &elemento);
     }
     free(f);
     return NULL;
@@ -78,12 +79,13 @@ int queue (fila_t* f, int elemento){
  * Remove elemento do inicio da fila (politica FIFO) e o retorna.
  * Retorna 1 se a operacao foi bem sucedida e 0 caso contrario.
 */
-int dequeue (fila_t* f, int elemento){
+int dequeue (fila_t* f, int *elemento){
     
-    if((f->ini->chave != elemento) || (fila_vazia(f) == 1))
+    if(fila_vazia(f) == 1)
         return 0;
 
     nodo_f_t *inicio;
+    *elemento = f->ini->chave;
     inicio = f->ini;
     f->ini = f->ini->prox;
     f->tamanho--;
@@ -102,7 +104,8 @@ void fila_imprime (fila_t* f){
         return;
     nodo_f_t *nodo;
     nodo = f->ini;
-    while(nodo->prox->prox != NULL ){
+    
+    while(nodo->prox != NULL){
         printf("%d ", nodo->chave);
         nodo = nodo->prox;
     }
