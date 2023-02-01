@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
-#include <allegro5/allegro_image.h>
+#include <allegro5/allegro_primitives.h>
 
 void must_init(bool test, const char *description)
 {
@@ -14,6 +14,7 @@ void must_init(bool test, const char *description)
 
 int main()
 {
+    char egg[5];
     must_init(al_init(), "allegro");
     must_init(al_install_keyboard(), "keyboard");
 
@@ -23,15 +24,17 @@ int main()
     ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
     must_init(queue, "queue");
 
-    ALLEGRO_DISPLAY* disp = al_create_display(640, 720);
+    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
+    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
+    al_set_new_bitmap_flags(ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
+
+    ALLEGRO_DISPLAY* disp = al_create_display(640, 480);
     must_init(disp, "display");
 
     ALLEGRO_FONT* font = al_create_builtin_font();
     must_init(font, "font");
 
-    must_init(al_init_image_addon(), "image addon");
-    ALLEGRO_BITMAP* mysha = al_load_bitmap("./assets/mysha.png");
-    must_init(mysha, "mysha");
+    must_init(al_init_primitives_addon(), "primitives");
 
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
@@ -41,6 +44,10 @@ int main()
     bool redraw = true;
     ALLEGRO_EVENT event;
 
+    float x, y;
+    x = 100;
+    y = 100;
+    
     al_start_timer(timer);
     while(1)
     {
@@ -49,11 +56,32 @@ int main()
         switch(event.type)
         {
             case ALLEGRO_EVENT_TIMER:
-                // game logic goes here.
+                // once again, no game logic. fishy? maybe.
                 redraw = true;
                 break;
 
             case ALLEGRO_EVENT_KEY_DOWN:
+                if(event.keyboard.keycode == ALLEGRO_KEY_F1)
+                    //open help tag;
+                    y = 10;
+                if(event.keyboard.keycode == ALLEGRO_KEY_P)
+                    if(egg[0] != 'p')
+                        egg[0] = 'p';
+                if(event.keyboard.keycode == ALLEGRO_KEY_R)
+                    if(egg[1] != 'r')
+                        egg[1] = 'r';
+                if(event.keyboard.keycode == ALLEGRO_KEY_UP)
+                    y--;
+                if(event.keyboard.keycode == ALLEGRO_KEY_DOWN)
+                    y++;
+                if(event.keyboard.keycode == ALLEGRO_KEY_LEFT)
+                    x--;
+                if(event.keyboard.keycode == ALLEGRO_KEY_RIGHT)
+                    x++;
+
+                if(event.keyboard.keycode != ALLEGRO_KEY_ESCAPE)
+                    break;
+
             case ALLEGRO_EVENT_DISPLAY_CLOSE:
                 done = true;
                 break;
@@ -65,9 +93,8 @@ int main()
         if(redraw && al_is_event_queue_empty(queue))
         {
             al_clear_to_color(al_map_rgb(0, 0, 0));
-            al_draw_text(font, al_map_rgb(255, 255, 255), 0, 0, 0, "Hello world!");
-
-            al_draw_bitmap(mysha, 100, 100, 0);
+            al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
+            al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
 
             al_flip_display();
 
@@ -75,7 +102,6 @@ int main()
         }
     }
 
-    al_destroy_bitmap(mysha);
     al_destroy_font(font);
     al_destroy_display(disp);
     al_destroy_timer(timer);
