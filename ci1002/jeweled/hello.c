@@ -4,6 +4,10 @@
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
 
+
+#define KEY_SEEN     1
+#define KEY_RELEASED 2
+
 void must_init(bool test, const char *description)
 {
     if(test) return;
@@ -14,10 +18,12 @@ void must_init(bool test, const char *description)
 
 int main()
 {
+    unsigned char key[ALLEGRO_KEY_MAX];
+    memset(key, 0, sizeof(key));
     char egg[5];
     must_init(al_init(), "allegro");
     must_init(al_install_keyboard(), "keyboard");
-
+    must_init(al_install_mouse(), "mouse");
     ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
     must_init(timer, "timer");
 
@@ -39,6 +45,7 @@ int main()
     al_register_event_source(queue, al_get_keyboard_event_source());
     al_register_event_source(queue, al_get_display_event_source(disp));
     al_register_event_source(queue, al_get_timer_event_source(timer));
+    al_register_event_source(queue, al_get_mouse_event_source());   
 
     bool done = false;
     bool redraw = true;
@@ -47,7 +54,8 @@ int main()
     float x, y;
     x = 100;
     y = 100;
-    
+    int help = -1;
+    al_hide_mouse_cursor(disp);
     al_start_timer(timer);
     while(1)
     {
@@ -56,37 +64,33 @@ int main()
         switch(event.type)
         {
             case ALLEGRO_EVENT_TIMER:
-                // once again, no game logic. fishy? maybe.
+                if(key[ALLEGRO_KEY_ESCAPE])
+                    done = true;
+
+                for(int i = 0; i < ALLEGRO_KEY_MAX; i++)
+                    key[i] &= KEY_SEEN;
+
                 redraw = true;
+                break;
+
+            case ALLEGRO_EVENT_MOUSE_AXES:
+                x = event.mouse.x;
+                y = event.mouse.y;
                 break;
 
             case ALLEGRO_EVENT_KEY_DOWN:
                 if(event.keyboard.keycode == ALLEGRO_KEY_F1)
-                    //open help tag;
-                    y = 10;
-                if(event.keyboard.keycode == ALLEGRO_KEY_P)
-                    if(egg[0] != 'p')
-                        egg[0] = 'p';
-                if(event.keyboard.keycode == ALLEGRO_KEY_R)
-                    if(egg[1] != 'r')
-                        egg[1] = 'r';
-                if(event.keyboard.keycode == ALLEGRO_KEY_UP)
-                    y--;
-                if(event.keyboard.keycode == ALLEGRO_KEY_DOWN)
-                    y++;
-                if(event.keyboard.keycode == ALLEGRO_KEY_LEFT)
-                    x--;
-                if(event.keyboard.keycode == ALLEGRO_KEY_RIGHT)
-                    x++;
-
-                if(event.keyboard.keycode != ALLEGRO_KEY_ESCAPE)
-                    break;
+                    help *= -1;
+                key[event.keyboard.keycode] = KEY_SEEN | KEY_RELEASED;
+                break;
+            case ALLEGRO_EVENT_KEY_UP:
+                key[event.keyboard.keycode] &= KEY_RELEASED;
+                break;
 
             case ALLEGRO_EVENT_DISPLAY_CLOSE:
                 done = true;
                 break;
         }
-
         if(done)
             break;
 
@@ -94,6 +98,7 @@ int main()
         {
             al_clear_to_color(al_map_rgb(0, 0, 0));
             al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
+            al_draw_textf(font, al_map_rgb(255, 255, 255), 100, 100, -1, "%d",help);
             al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
 
             al_flip_display();
