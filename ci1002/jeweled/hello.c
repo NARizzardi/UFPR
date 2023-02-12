@@ -1,51 +1,102 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
-
+#include "liballegro.h"
+#include "libjeweled.h"
 
 #define KEY_SEEN     1
 #define KEY_RELEASED 2
+#define FPS 60
+#define SCREEN_W 1080
+#define SCREEN_H 640
 
-void must_init(bool test, const char *description)
-{
-    if(test) return;
+typedef struct game {
+    int mapa[8][8];
+    int score;
+} game_t;
 
-    printf("couldn't initialize %s\n", description);
-    exit(1);
+game_t *novo_jogo(){
+    game_t *jogo;
+    jogo = (game_t *) malloc(sizeof(game_t));
+    jogo->score = 0;
+    
+    srand(clock());
+    int i, j;
+    for(i = 7; i >= 0; i--){
+        for(j = 7; j >= 0; j--){
+            jogo->mapa[i][j] = (rand() % 4) + 1;
+            printf("| %d | - ", jogo->mapa[i][j]);
+        }
+        printf("\n");
+    }
+
+    return jogo;
 }
+
+void draw_grid(game_t* jogo, ALLEGRO_BITMAP* jewel1, ALLEGRO_BITMAP* jewel2, ALLEGRO_BITMAP* jewel3, ALLEGRO_BITMAP* jewel4){
+    int i, j;
+    int r = 0;
+    for(i = 60; i <= 560; i += 70){
+    int g = 0;
+        for(j = 60; j <= 560; j += 70){
+            switch (jogo->mapa[r][g]){
+                case 1:
+                    al_draw_bitmap(jewel1, i, j, 0);
+                    break;
+                case 2:
+                    al_draw_bitmap(jewel2, i, j, 0);
+                    break;
+                case 3:
+                    al_draw_bitmap(jewel3, i, j, 0);
+                    break;
+                case 4:
+                    al_draw_bitmap(jewel4, i, j, 0);
+                    break;
+            }
+            //al_draw_filled_rectangle(i, j, i+60, j+60, al_map_rgba_f(r, g , 0.5, 0.5));
+            g++;
+        }
+        r++;
+        
+    }
+}
+
 
 int main()
 {
+
+    game_t *jogo;
+    jogo = novo_jogo();
+
     unsigned char key[ALLEGRO_KEY_MAX];
     memset(key, 0, sizeof(key));
     char egg[5];
-    must_init(al_init(), "allegro");
-    must_init(al_install_keyboard(), "keyboard");
-    must_init(al_install_mouse(), "mouse");
-    ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
+    start_allegro();
+    
+    ALLEGRO_BITMAP* jewel1 = al_load_bitmap("./resources/jewel1.png");
+    ALLEGRO_BITMAP* jewel2 = al_load_bitmap("./resources/jewel2.png");
+    ALLEGRO_BITMAP* jewel3 = al_load_bitmap("./resources/jewel3.png");
+    ALLEGRO_BITMAP* jewel4 = al_load_bitmap("./resources/jewel4.png");
+    ALLEGRO_BITMAP* background = al_load_bitmap("./resources/background.bmp");
+    ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
     must_init(timer, "timer");
 
     ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
     must_init(queue, "queue");
 
-    al_set_new_display_option(ALLEGRO_SAMPLE_BUFFERS, 1, ALLEGRO_SUGGEST);
-    al_set_new_display_option(ALLEGRO_SAMPLES, 8, ALLEGRO_SUGGEST);
-    al_set_new_bitmap_flags(ALLEGRO_MIN_LINEAR | ALLEGRO_MAG_LINEAR);
+    al_set_display();
 
-    ALLEGRO_DISPLAY* disp = al_create_display(640, 480);
+    ALLEGRO_DISPLAY* disp = al_create_display(SCREEN_W, SCREEN_H);
     must_init(disp, "display");
 
     ALLEGRO_FONT* font = al_create_builtin_font();
     must_init(font, "font");
 
-    must_init(al_init_primitives_addon(), "primitives");
-
-    al_register_event_source(queue, al_get_keyboard_event_source());
-    al_register_event_source(queue, al_get_display_event_source(disp));
-    al_register_event_source(queue, al_get_timer_event_source(timer));
-    al_register_event_source(queue, al_get_mouse_event_source());   
+    
+    al_set_registers(queue, disp, timer);   
 
     bool done = false;
     bool redraw = true;
@@ -78,6 +129,12 @@ int main()
                 y = event.mouse.y;
                 break;
 
+            case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
+			    printf("\nclicou em (%d, %d)", event.mouse.x, event.mouse.y);
+                break;
+		    case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+			    printf("\nsoltou em (%d, %d)", event.mouse.x, event.mouse.y);
+                break;
             case ALLEGRO_EVENT_KEY_DOWN:
                 if(event.keyboard.keycode == ALLEGRO_KEY_F1)
                     help *= -1;
@@ -97,6 +154,8 @@ int main()
         if(redraw && al_is_event_queue_empty(queue))
         {
             al_clear_to_color(al_map_rgb(0, 0, 0));
+            draw_grid(jogo, jewel1, jewel2, jewel3, jewel4);
+            al_draw_line(720, 0, 720, 640, al_map_rgb_f(1, 0, 0), 1);
             al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
             al_draw_textf(font, al_map_rgb(255, 255, 255), 100, 100, -1, "%d",help);
             al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
