@@ -84,7 +84,7 @@ int main()
     float x, y;
     x = 100;
     y = 100;
-    int help = -1;
+    int screenstatus = 0;
     al_start_timer(timer);
     while(1)
     {
@@ -108,14 +108,39 @@ int main()
                 break;
 
             case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-			    printf("\nclicou em (%d, %d)", event.mouse.x, event.mouse.y);
+                switch(screenstatus){
+                    case -1:
+                        //main menu logic goes here
+                        break;
+                    case 1:
+                        //pause menu logic goes here
+                        break;
+                    case 2:
+                        //help menu logic goes here
+                        break;
+                    default:
+                        //game logic goes here
+                        if(event.mouse.x >= 900 && event.mouse.x <= 1050 && event.mouse.y >= 20 && event.mouse.y <= 80) 
+                            screenstatus = 1;
+                        if(event.mouse.x >= 60 && event.mouse.x <= 560 && event.mouse.y >= 60 && event.mouse.y <= 560)
+                            //makes the gem logic going here
+                            printf("you picked a gem here x:%d, y:%d", event.mouse.x, event.mouse.y);
+                        break;
+                }
+                printf("\nclicou em (%d, %d)", event.mouse.x, event.mouse.y);
                 break;
 		    case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-			    printf("\nsoltou em (%d, %d)", event.mouse.x, event.mouse.y);
+                if(screenstatus == 0){
+                    printf("\nyou dropped a gem here: (%d, %d)", event.mouse.x, event.mouse.y);
+                }
                 break;
             case ALLEGRO_EVENT_KEY_DOWN:
-                if(event.keyboard.keycode == ALLEGRO_KEY_F1)
-                    help *= -1;
+                if(event.keyboard.keycode == ALLEGRO_KEY_F1){
+                    if(screenstatus == 2)
+                        screenstatus = 0;   
+                    else
+                        screenstatus = 2;
+                }
                 key[event.keyboard.keycode] = KEY_SEEN | KEY_RELEASED;
                 break;
             case ALLEGRO_EVENT_KEY_UP:
@@ -131,11 +156,23 @@ int main()
 
         if(redraw && al_is_event_queue_empty(queue))
         {
-            if(help == 1){
-                draw_help_secction(font, disp, background, spacing);
-            } else {
-                draw_scenario(font, disp, background, spacing, x, y);
+            switch(screenstatus){
+                case -1:
+                    //draw_home_screen();
+                    break;
+                case 1:
+                    //draw_pause_screen();
+                    printf("pausou");
+                    screenstatus = 0;
+                    break;
+                case 2:
+                    draw_help_secction(font, disp, background, spacing);
+                    break;
+                default:
+                    draw_scenario(font, disp, background, spacing, x, y);
+                    break;
             }
+            
             
 
             al_flip_display();
