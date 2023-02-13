@@ -1,6 +1,11 @@
+#include "liballegro.h"
 
+typedef struct jewel {
+    int tipo;
+    int score;
+} jewel_t;
 
-
+void novo_jogo();
 
 void troca_pecas();
 

@@ -3,7 +3,9 @@
 #include <time.h>
 #include "libjeweled.h"
 
-
+void novo_jogo(){
+    
+}
 
 void gera_mapa(int mapa[8][8]){
     
