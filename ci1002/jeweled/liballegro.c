@@ -36,50 +36,108 @@ void al_set_registers(ALLEGRO_EVENT_QUEUE* queue, ALLEGRO_DISPLAY* disp, ALLEGRO
     al_register_event_source(queue, al_get_mouse_event_source());
 }
 
+void draw_home_screen(ALLEGRO_FONT* title_font, ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y){
+    al_draw_bitmap(background, 0, 0, 0);
+    al_draw_filled_rectangle(205, 235, 765, 283, al_map_rgba(237, 153, 68, 160));
+    al_draw_textf(title_font, al_map_rgb(0, 0, 0), 485, 230, -1, "PUFFLES AND JEWELS");
+    if(x >= 415 && x <= 550 && y >= 310 && y <= 350){
+            al_draw_filled_rectangle(415, 310, 550, 350, al_map_rgba(250, 166, 81, 220));
+            al_draw_filled_rectangle(415, 360, 550, 400, al_map_rgb(237, 153, 68));
+            al_draw_filled_rectangle(415, 410, 550, 450, al_map_rgb(237, 153, 68));
+    } else if(x >= 415 && x <= 550 && y >= 360 && y <= 400){
+            al_draw_filled_rectangle(415, 310, 550, 350, al_map_rgb(237, 153, 68));
+            al_draw_filled_rectangle(415, 360, 550, 400, al_map_rgba(250, 166, 81, 220));
+            al_draw_filled_rectangle(415, 410, 550, 450, al_map_rgb(237, 153, 68));
+    } else if(x >= 415 && x <= 550 && y >= 410 && y <= 450){
+            al_draw_filled_rectangle(415, 310, 550, 350, al_map_rgb(237, 153, 68));
+            al_draw_filled_rectangle(415, 360, 550, 400, al_map_rgb(237, 153, 68));
+            al_draw_filled_rectangle(415, 410, 550, 450, al_map_rgba(250, 166, 81, 220));
+    } else {
+        al_draw_filled_rectangle(415, 310, 550, 350, al_map_rgb(237, 153, 68));
+        al_draw_filled_rectangle(415, 360, 550, 400, al_map_rgb(237, 153, 68));
+        al_draw_filled_rectangle(415, 410, 550, 450, al_map_rgb(237, 153, 68));
+    }
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 480, 320, -1, "Novo Jogo");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 480, 370, -1, "Como Jogar");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 480, 420, -1, "Sair");
+}
+
 void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y){
-    int posx = 60, posy = 60;
-    int distancia = 64;
     int highscore = 1337;
     int score = 300;
     int level = 2;
     al_draw_bitmap(background, 0, 0, 0);
 
-    al_draw_line(720, 0, 720, 640, al_map_rgb_f(1, 0, 0), 1);
+    al_draw_line(720, 224, 720, 493, al_map_rgb(180, 96, 12), 1);
     al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 290, -1, "High Score:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 310, -1, "%d", highscore);
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 350, -1, "Pontuação atual:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 370, -1, "%d", score);
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 410, -1, "Próxima fase em:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 430, -1, "%d pontos", (level * 1000) - score);
-    al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
-    al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgb(237, 153, 68));
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 975, 47.5, -1, "PAUSE");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 285, -1, "High Score:");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 305, -1, "%d", highscore);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 345, -1, "Pontuação atual:");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 365, -1, "%d", score);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 405, -1, "Próxima fase em:");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 425, -1, "%d pontos", (level * 1000) - score);
+    //al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
+    if(x >= 900 && x <= 1050 && y >= 20 && y <= 80){
+        al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgba(250, 166, 81, 220));
+    } else {
+        al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgb(237, 153, 68));
+    }
+    if(x >= 900 && x <= 1050 && y >= 570 && y <= 630){
+        al_draw_filled_rectangle(900, 570, 1050, 630, al_map_rgba(250, 166, 81, 220));
+    } else {
+        al_draw_filled_rectangle(900, 570, 1050, 630, al_map_rgb(237, 153, 68));
+    }
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 975, 42, -1, "AJUDA");
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 975, 590, -1, "SAIR");
     
 }
 
-void draw_help_secction(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing){
+void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing){
     al_draw_bitmap(background, 0, 0, 0);
+    
+    al_draw_filled_rectangle(324, 213, 680, 480, al_map_rgba(0, 94, 171, 180));
     al_draw_line(324, 213, 324, 480, al_map_rgb_f(0, 0, 0), 5);
     al_draw_line(680, 213, 680, 480, al_map_rgb_f(0, 0, 0), 5);
-    al_draw_line(324, 213, 680, 213, al_map_rgb_f(0, 0, 0), 5);
-    al_draw_line(324, 480, 680, 480, al_map_rgb_f(0, 0, 0), 5);
-    al_draw_filled_rectangle(324, 213, 680, 480, al_map_rgba(0, 94, 171, 180));
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 223, -1, "Use o seu mouse para arrastar uma joia");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 238, -1, "Você pode trocar uma jóia com sua adjacente");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 253, -1, "E juntar pelo menos três jóias iguais");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 278, -1, "A pontuação se dá assim:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 293, -1, "3 joias - 10 pontos");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 308, -1, "4 joias - 20 pontos");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 323, -1, "5 joias - 30 pontos");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 348, -1, "Como o jogo acaba:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 363, -1, "Não havendo mais movimentos");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 378, -1, "Concluindo a fase");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 393, -1, "Fechando o jogo :)");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 418, -1, "Para concluir a fase você deve fazer"); 
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 433, -1, "1000 x nº da fase atual pontos."); 
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 458, -1, "Boa sorte!"); 
+    al_draw_line(321, 213, 683, 213, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 480, 683, 480, al_map_rgb_f(0, 0, 0), 5);
+
+    al_draw_line(670, 200, 670, 220, al_map_rgb_f(0, 0, 0), 4);
+    al_draw_line(690, 200, 690, 220, al_map_rgb_f(0, 0, 0), 4);
+    al_draw_line(668, 200, 692, 200, al_map_rgb_f(0, 0, 0), 4);
+    al_draw_line(668, 220, 692, 220, al_map_rgb_f(0, 0, 0), 4);
+    al_draw_filled_rectangle(670, 200, 690, 220, al_map_rgba(250, 0, 0, 180));
+
+    al_draw_textf(big_font, al_map_rgb(0, 0, 0), 680, 200, -1, "X");
+
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 223, -1, "Use o seu mouse para arrastar uma joia");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 238, -1, "Você pode trocar uma jóia com sua adjacente");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 253, -1, "E juntar pelo menos três jóias iguais");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 278, -1, "A pontuação se dá assim:");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 293, -1, "3 joias - 10 pontos");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 308, -1, "4 joias - 20 pontos");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 323, -1, "5 joias - 30 pontos");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 348, -1, "Como o jogo acaba:");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 363, -1, "Não havendo mais movimentos");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 378, -1, "Concluindo a fase");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 393, -1, "Fechando o jogo :)");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 418, -1, "Para concluir a fase você deve fazer"); 
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 433, -1, "1000 x no da fase atual pontos."); 
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 458, -1, "Boa sorte!"); 
     
+}
+
+void draw_exit_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y){
+    
+    //card box
+    al_draw_filled_rectangle(324, 213, 680, 368, al_map_rgba(0, 94, 171, 220));
+    al_draw_line(324, 213, 324, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(680, 213, 680, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 213, 683, 213, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 368, 683, 368, al_map_rgb_f(0, 0, 0), 5);
+
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 263, -1, "Você tem certeza que quer sair?");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 298, -1, "Seu progresso não será salvo");
+
 }
 
 void draw_jewel(ALLEGRO_BITMAP* jewel, float x, float y, int flags){

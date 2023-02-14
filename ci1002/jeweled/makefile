@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -g -Wall -std=c99
-LDFLAGS = `pkg-config allegro-5 allegro_font-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 --libs --cflags`
+LDFLAGS = `pkg-config allegro-5 allegro_font-5 allegro_ttf-5 allegro_primitives-5 allegro_audio-5 allegro_acodec-5 allegro_image-5 --libs --cflags`
 
 	objects = jeweled.o liballegro.o libjeweled.o
 
