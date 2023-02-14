@@ -4,6 +4,8 @@
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_image.h>
+#include <allegro5/allegro_audio.h>
+#include <allegro5/allegro_acodec.h>
 
 void must_init(bool test, const char *description)
 {
@@ -51,7 +53,8 @@ void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 410, -1, "Próxima fase em:");
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 430, -1, "%d pontos", (level * 1000) - score);
     al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
-    al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgb(0, 0, 0));
+    al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgb(237, 153, 68));
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 975, 47.5, -1, "PAUSE");
     
 }
 
@@ -77,4 +80,13 @@ void draw_help_secction(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_B
     al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 433, -1, "1000 x nº da fase atual pontos."); 
     al_draw_textf(font, al_map_rgb(0, 0, 0), 502, 458, -1, "Boa sorte!"); 
     
+}
+
+void draw_jewel(ALLEGRO_BITMAP* jewel, float x, float y, int flags){
+    al_draw_line(x, y, x, y+64, al_map_rgb(207, 123, 40), 3);
+    al_draw_line(x+64, y, x+64, y+64, al_map_rgb(207, 123, 40), 3);
+    al_draw_line(x, y, x+64, y, al_map_rgb(207, 123, 40), 3);
+    al_draw_line(x, y+64, x+64, y+64, al_map_rgb(207, 123, 40), 3);
+    al_draw_filled_rectangle(x, y, x+64, y+64, al_map_rgba(0, 94, 171, 100));
+    al_draw_bitmap(jewel, x, y, 0);
 }

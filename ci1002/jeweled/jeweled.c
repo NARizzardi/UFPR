@@ -4,19 +4,21 @@
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_primitives.h>
+#include <allegro5/allegro_audio.h>
+#include <allegro5/allegro_acodec.h>
 #include "liballegro.h"
 #include "libjeweled.h"
 
-#define LINES 8
-#define COLS 8
-#define TYPES 4
 
+/* config vars */
 #define KEY_SEEN     1
 #define KEY_RELEASED 2
-#define FPS 60
+#define FPS 1
 #define SCREEN_W 1080
 #define SCREEN_H 640
+#define TYPES 4
 
+/* jewels enum */
 #define GREEN 1
 #define ORANGE 2
 #define PURPLE 3
@@ -24,15 +26,17 @@
 #define GOLDEN 5
 #define RAINBOW 6
 
-#define JEWEL1_FILE "./resources/jewel1.png"
-#define JEWEL2_FILE "./resources/jewel2.png"
-#define JEWEL3_FILE "./resources/jewel3.png"
-#define JEWEL4_FILE "./resources/jewel4.png"
-#define JEWEL5_FILE "./resources/jewel5.png"
-#define JEWEL6_FILE "./resources/jewel6.png"
-#define BACKGROUND_FILE "./resources/background2.bmp"
-#define SPACING_FILE "./resources/spacing.bmp"
+/* resources paths */
+#define JEWEL1_FILE "./resources/images/jewel1.png"
+#define JEWEL2_FILE "./resources/images/jewel2.png"
+#define JEWEL3_FILE "./resources/images/jewel3.png"
+#define JEWEL4_FILE "./resources/images/jewel4.png"
+#define JEWEL5_FILE "./resources/images/jewel5.png"
+#define JEWEL6_FILE "./resources/images/jewel6.png"
+#define BACKGROUND_FILE "./resources/images/background2.bmp"
+#define SPACING_FILE "./resources/images/spacing.bmp"
 
+/* declare global vars*/
 ALLEGRO_BITMAP* jewel1;
 ALLEGRO_BITMAP* jewel2;
 ALLEGRO_BITMAP* jewel3;
@@ -43,8 +47,12 @@ ALLEGRO_BITMAP* background;
 ALLEGRO_BITMAP* spacing;
 ALLEGRO_FONT* font;
 
+int score = 0;
+int highscore[10];
+
 int main()
 {
+    srand(time(NULL));
     /* ### Configura a biblioteca do Allegro ### */
     unsigned char key[ALLEGRO_KEY_MAX];
     memset(key, 0, sizeof(key));
@@ -170,6 +178,7 @@ int main()
                     break;
                 default:
                     draw_scenario(font, disp, background, spacing, x, y);
+                    draw_grid(jewel1,  jewel2,  jewel3,  jewel4);
                     break;
             }
             
