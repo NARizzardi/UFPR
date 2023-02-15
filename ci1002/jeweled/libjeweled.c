@@ -7,15 +7,37 @@ int gera_doce(){
     return (rand() % 4)+ 1;
 }
 
+int doce_valido(jewel_t** matriz, int x, int y, int doce){
+    if(x < 2 && y < 2) // os primeiros dois de linha e coluna
+        return 1;
+    if(x >= 2 && y < 2)
+        if(matriz[x-2][y].tipo == doce && matriz[x-1][y].tipo == doce)
+            return 0;
+    if(x < 2 && y >= 2)
+        if(matriz[x][y-2].tipo == doce && matriz[x][y-1].tipo == doce)
+            return 0;
+    if(x >= 2 && y >= 2)
+        if((matriz[x][y-2].tipo == doce && matriz[x][y-1].tipo == doce) || (matriz[x-2][y].tipo == doce && matriz[x-1][y].tipo == doce))
+            return 0;
+
+    return 1;
+    
+}
+
 jewel_t** novo_jogo(){
-    jewel_t** matriz_joia = (jewel_t **)malloc(9 * sizeof(jewel_t*));
-    for(int i = 0; i < 9; i++){
-        matriz_joia[i] = (jewel_t *)malloc(9 * sizeof(jewel_t));
+    jewel_t** matriz_joia = (jewel_t **)malloc(8 * sizeof(jewel_t*));
+    int doce;
+    for(int i = 0; i < 8; i++){
+        matriz_joia[i] = (jewel_t *)malloc(8 * sizeof(jewel_t));
     }
-        for(int i = 0; i < 9; i++){
-            for(int j = 0; j < 9; j++){
+        for(int i = 0; i < 8; i++){
+            for(int j = 0; j < 8; j++){
+                doce = gera_doce();
                 matriz_joia[i][j].ativo = 1;
-                matriz_joia[i][j].tipo = gera_doce();
+                while(doce_valido(matriz_joia, i, j, doce) == 0){
+                    doce = gera_doce();
+                }
+                matriz_joia[i][j].tipo = doce;
             }
         }
         return matriz_joia;

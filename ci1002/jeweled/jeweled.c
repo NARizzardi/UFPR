@@ -137,6 +137,7 @@ int main(){
     /* Fim das configuracoes do jogo */
 
     /* Flags de Controle*/
+    int pickupFlag = 0;
     int menuFlag = 1;
     int exitFlag = 0;
     int animationFlag = 0;
@@ -144,6 +145,7 @@ int main(){
     int flipFlag = 0;
 
     /* Posicao do Mouse */
+    float lastx, lasty;
     float x, y;
 
     /* Easter Egg */
@@ -208,9 +210,14 @@ int main(){
                         }
                         // Area do jogo
                         if(event.mouse.x >= 130 && event.mouse.x <= 664 && event.mouse.y >= 60 && event.mouse.y <= 560){
-                            //makes the gem logic going here
-                            al_play_sample(level_done, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
-                            printf("you picked a gem here x:%d, y:%d", event.mouse.x, event.mouse.y);
+                            if(exitFlag == 0){
+                                    //O jogador acabou de pegar uma joia
+                                    lastx = event.mouse.x;
+                                    lasty = event.mouse.y;
+                                    pickupFlag = 1;
+                                al_play_sample(level_done, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
+                                printf("you picked a gem here x:%d, y:%d", event.mouse.x, event.mouse.y);
+                            }
                             count = 0;
                         }
                         // Easter egg
@@ -229,7 +236,9 @@ int main(){
                         // Volta pro menu inicial
                         if(exitFlag == 1 && event.mouse.x >= 540 && event.mouse.x <= 640 && event.mouse.y >= 345 && event.mouse.y <= 385){
                             al_set_audio_stream_playing(music,1);
+                            al_rewind_audio_stream(music);
                             screenstatus = -1;
+                            menuFlag = 1;
                             flipFlag = 0;
                             exitFlag = 0;
                         }
@@ -245,7 +254,13 @@ int main(){
 
             // Soltar o clique do mouse (arrastar)
 		    case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-                if(screenstatus == 0){
+                if(screenstatus == 0 && exitFlag == 0){
+                    if(pickupFlag == 1){
+                        //logica de soltar
+
+                        lastx = lasty = 0;
+                        pickupFlag = 0;
+                    }
                     printf("\nyou dropped a gem here: (%d, %d)", event.mouse.x, event.mouse.y);
                 }
                 break;
