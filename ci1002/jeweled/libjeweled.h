@@ -2,10 +2,10 @@
 
 typedef struct jewel {
     int tipo;
-    int score;
+    int ativo;
 } jewel_t;
 
-void novo_jogo();
+jewel_t** novo_jogo();
 
 void troca_pecas();
 
@@ -13,6 +13,6 @@ void dropa_pecas();
 
 int verifica_jogo();
 
-void draw_grid(ALLEGRO_BITMAP* jewel1, ALLEGRO_BITMAP* jewel2, ALLEGRO_BITMAP* jewel3, ALLEGRO_BITMAP* jewel4);
+void draw_grid(jewel_t** jogo, ALLEGRO_BITMAP* jewel1, ALLEGRO_BITMAP* jewel2, ALLEGRO_BITMAP* jewel3, ALLEGRO_BITMAP* jewel4);
 
 void encerra_jogo();

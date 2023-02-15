@@ -17,9 +17,9 @@ void al_set_registers(ALLEGRO_EVENT_QUEUE* queue, ALLEGRO_DISPLAY* disp, ALLEGRO
 
 void draw_home_screen(ALLEGRO_FONT* title_font, ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y);
 
-void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y);
+void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y, int score, int goal, int highscore);
 
-void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing);
+void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y);
 
 void draw_exit_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y);
 

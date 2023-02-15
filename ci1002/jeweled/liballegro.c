@@ -7,8 +7,7 @@
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
 
-void must_init(bool test, const char *description)
-{
+void must_init(bool test, const char *description){
     if(test) return;
 
     printf("couldn't initialize %s\n", description);
@@ -21,6 +20,9 @@ void start_allegro(){
     must_init(al_install_keyboard(), "keyboard");
     must_init(al_install_mouse(), "mouse");
     must_init(al_init_primitives_addon(), "primitives");
+    must_init(al_install_audio(), "audio");
+    must_init(al_init_acodec_addon(), "audio codec");
+    must_init(al_reserve_samples(10), "audio samples");
 }
 
 void al_set_display(){
@@ -62,20 +64,18 @@ void draw_home_screen(ALLEGRO_FONT* title_font, ALLEGRO_FONT* font, ALLEGRO_DISP
     al_draw_textf(font, al_map_rgb(0, 0, 0), 480, 420, -1, "Sair");
 }
 
-void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y){
-    int highscore = 1337;
-    int score = 300;
-    int level = 2;
+void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y, int score, int goal, int highscore){
+    
     al_draw_bitmap(background, 0, 0, 0);
 
-    al_draw_line(720, 224, 720, 493, al_map_rgb(180, 96, 12), 1);
+
     al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 285, -1, "High Score:");
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 305, -1, "%d", highscore);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 345, -1, "Pontuação atual:");
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 365, -1, "%d", score);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 405, -1, "Próxima fase em:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 425, -1, "%d pontos", (level * 1000) - score);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 425, -1, "%d pontos", (goal) - score);
     //al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
     if(x >= 900 && x <= 1050 && y >= 20 && y <= 80){
         al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgba(250, 166, 81, 220));
@@ -92,7 +92,7 @@ void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP
     
 }
 
-void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing){
+void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y){
     al_draw_bitmap(background, 0, 0, 0);
     
     al_draw_filled_rectangle(324, 213, 680, 480, al_map_rgba(0, 94, 171, 180));
@@ -105,8 +105,11 @@ void draw_help_secction(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO
     al_draw_line(690, 200, 690, 220, al_map_rgb_f(0, 0, 0), 4);
     al_draw_line(668, 200, 692, 200, al_map_rgb_f(0, 0, 0), 4);
     al_draw_line(668, 220, 692, 220, al_map_rgb_f(0, 0, 0), 4);
-    al_draw_filled_rectangle(670, 200, 690, 220, al_map_rgba(250, 0, 0, 180));
-
+    if(x >= 670 && x <= 690 && y >= 200 && y <= 220){
+        al_draw_filled_rectangle(670, 200, 690, 220, al_map_rgba(250, 0, 0, 100));
+    } else {
+        al_draw_filled_rectangle(670, 200, 690, 220, al_map_rgba(250, 0, 0, 180));
+    }
     al_draw_textf(big_font, al_map_rgb(0, 0, 0), 680, 200, -1, "X");
 
     al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 223, -1, "Use o seu mouse para arrastar uma joia");
@@ -134,10 +137,27 @@ void draw_exit_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALL
     al_draw_line(680, 213, 680, 368, al_map_rgb_f(0, 0, 0), 5);
     al_draw_line(321, 213, 683, 213, al_map_rgb_f(0, 0, 0), 5);
     al_draw_line(321, 368, 683, 368, al_map_rgb_f(0, 0, 0), 5);
-
-    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 263, -1, "Você tem certeza que quer sair?");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 263, -1, "Você tem certeza que deseja sair?");
     al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 298, -1, "Seu progresso não será salvo");
 
+    if(x >= 380 && x <= 480 && y >= 345 && y <= 385){
+        al_draw_filled_rectangle(380, 345, 480, 385, al_map_rgba(50, 50, 50, 255));
+    } else {
+        al_draw_filled_rectangle(380, 345, 480, 385, al_map_rgba(0, 0, 0, 255));
+    }
+    if(x >= 540 && x <= 640 && y >= 345 && y <= 385){
+        al_draw_filled_rectangle(540, 345, 640, 385, al_map_rgba(250, 50, 50, 255));
+    } else {
+        al_draw_filled_rectangle(540, 345, 640, 385, al_map_rgba(250, 0, 0, 255));
+    }
+
+    al_draw_line(540, 345, 540, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(640, 345, 640, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(538, 345, 642, 345, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(538, 385, 642, 385, al_map_rgb_f(0, 0, 0), 3);
+
+    al_draw_textf(mini_font, al_map_rgb(255, 255, 255), 430, 355, -1, "Voltar");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 590, 355, -1, "Sair");
 }
 
 void draw_jewel(ALLEGRO_BITMAP* jewel, float x, float y, int flags){
