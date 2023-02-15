@@ -44,6 +44,22 @@ jewel_t** novo_jogo(){
 
 }
 
+int sao_vizinhos(int oldColumn, int oldRow, int newColumn, int newRow){
+    int columnDiff = newColumn - oldColumn;
+    int rowDiff = newRow - oldRow;
+    if(((columnDiff == 1 || columnDiff == -1) && rowDiff == 0) ||
+        ((rowDiff == 1 || rowDiff == -1) && columnDiff == 0))
+            return 1;
+    return 0;
+}
+
+int troca_valida(jewel_t** jogo, int oldColumn, int oldRow, int newColumn, int newRow){
+    
+}
+
+int troca_pecas(jewel_t** jogo, int oldColumn, int oldRow, int newColumn, int newRow){
+
+}
 
 void draw_grid(jewel_t** jogo, ALLEGRO_BITMAP* jewel1, ALLEGRO_BITMAP* jewel2, ALLEGRO_BITMAP* jewel3, ALLEGRO_BITMAP* jewel4){
     int i, j;

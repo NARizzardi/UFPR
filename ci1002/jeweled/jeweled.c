@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
 #include <allegro5/allegro5.h>
 #include <allegro5/allegro_font.h>
 #include <allegro5/allegro_ttf.h>
 #include <allegro5/allegro_primitives.h>
 #include <allegro5/allegro_audio.h>
 #include <allegro5/allegro_acodec.h>
+
 #include "liballegro.h"
 #include "libjeweled.h"
 
@@ -69,6 +71,7 @@ int score;
 int level;
 int goal;
 int highscore;
+int pontos;
 
 int main(){
 
@@ -216,7 +219,6 @@ int main(){
                                     lasty = event.mouse.y;
                                     pickupFlag = 1;
                                 al_play_sample(level_done, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
-                                printf("you picked a gem here x:%d, y:%d", event.mouse.x, event.mouse.y);
                             }
                             count = 0;
                         }
@@ -249,19 +251,30 @@ int main(){
                         }
                         break;
                 }
-                printf("\nclicou em (%d, %d)", event.mouse.x, event.mouse.y);
                 break;
 
             // Soltar o clique do mouse (arrastar)
 		    case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
                 if(screenstatus == 0 && exitFlag == 0){
                     if(pickupFlag == 1){
-                        //logica de soltar
+                        
+                        int oldColumn = (lastx - 60 )/60.0;
+                        int oldRow  = lasty / 60.0;
+                        int newColumn = (event.mouse.x - 60 )/60.0;
+                        int newRow  = event.mouse.y / 60.0;
+                        
+                        if(sao_vizinhos(oldColumn, oldRow, newColumn, newRow) == 1){                        
+                            if(troca_valida(jogo, oldColumn, oldRow, newColumn, newRow) == 1){
+                            //     pontos = troca_pecas(jogo, oldColumn, oldRow, newColumn, newRow);
+                            //     score += pontos;
 
+                            }
+                        }
+                        
                         lastx = lasty = 0;
                         pickupFlag = 0;
                     }
-                    printf("\nyou dropped a gem here: (%d, %d)", event.mouse.x, event.mouse.y);
+
                 }
                 break;
 

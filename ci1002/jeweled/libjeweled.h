@@ -7,9 +7,11 @@ typedef struct jewel {
 
 jewel_t** novo_jogo();
 
-void troca_pecas();
+int sao_vizinhos(int oldColumn, int oldRow, int newColumn, int newRow);
 
-void dropa_pecas();
+int troca_valida(jewel_t** jogo, int oldColumn, int oldRow, int newColumn, int newRow);
+
+int troca_pecas(jewel_t** jogo, int oldColumn, int oldRow, int newColumn, int newRow);
 
 int verifica_jogo();
 
