@@ -20,6 +20,7 @@
 #define SCREEN_W 1080
 #define SCREEN_H 640
 #define TYPES 4
+#define LINESIZE 1024
 
 /* jewels enum */
 #define GREEN 1
@@ -45,9 +46,12 @@
 #define BACKGROUND_SOUND_FILE "./resources/audios/8bit_smooth.ogg"
 #define MATCH_SOUND_FILE "./resources/audios/match.ogg"
 #define LEVEL_SOUND_FILE "./resources/audios/level_complete.ogg"
+#define FLIP_SOUND_FILE "./resources/audios/flip.ogg"
+#define DENIED_SOUND_FILE "./resources/audios/denied.ogg"
 #define NEW_GAME_SOUND_FILE "./resources/audios/new_game.ogg"
+#define HIGHSCORE_FILE "./resources/highscore.txt"
 
-/* declare global vars */
+/* Variaveis do Allegro */
 ALLEGRO_BITMAP* jewel1;
 ALLEGRO_BITMAP* jewel2;
 ALLEGRO_BITMAP* jewel3;
@@ -58,39 +62,69 @@ ALLEGRO_BITMAP* background;
 ALLEGRO_BITMAP* flip_background;
 ALLEGRO_BITMAP* spacing;
 ALLEGRO_BITMAP* logo;
+
 ALLEGRO_FONT* big_font;
 ALLEGRO_FONT* mini_font;
 ALLEGRO_FONT* title_font;
+
 ALLEGRO_AUDIO_STREAM* music;
 ALLEGRO_SAMPLE* match;
+ALLEGRO_SAMPLE* denied;
 ALLEGRO_SAMPLE* level_done;
 ALLEGRO_SAMPLE* new_game;
+ALLEGRO_SAMPLE* flip;
 
+ALLEGRO_TIMER* timer;
+ALLEGRO_EVENT_QUEUE* queue;
+ALLEGRO_DISPLAY* disp;
+ALLEGRO_EVENT event;
+
+unsigned char key[ALLEGRO_KEY_MAX];
+bool done = false;
+bool redraw = true;
+
+/* Variaveis do jogo */
 jewel_t** jogo;
 int score;
 int level;
 int goal;
 int highscore;
 int pontos;
+int jogadas;
+int fixedGoal;
+FILE *highscore_file;
 
-int main(){
+/* Flags de Controle*/
+int pickupFlag = 0;
+int menuFlag = 1;
+int exitFlag = 0;
+int screenstatus = -1;
+int flipFlag = 0;
+int gameOverFlag = 0;
+int levelCompleteFlag = 0;
 
+/* Posicao do Mouse */
+float lastx, lasty;
+float x, y;
+
+/* Easter Egg */
+int count = 0;
+
+
+void inicializa_allegro(){
     /* Configuracao da biblioteca do Allegro */
     
-    unsigned char key[ALLEGRO_KEY_MAX];
-    memset(key, 0, sizeof(key));
     start_allegro(); // Inicializacao basica
-    
 
-    ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
+    timer = al_create_timer(1.0 / FPS);
     must_init(timer, "timer");
 
-    ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
+    queue = al_create_event_queue();
     must_init(queue, "queue");
 
     al_set_display();
 
-    ALLEGRO_DISPLAY* disp = al_create_display(SCREEN_W, SCREEN_H);
+    disp = al_create_display(SCREEN_W, SCREEN_H);
     must_init(disp, "display");
 
     /* Regularizacao das fontes */
@@ -101,11 +135,9 @@ int main(){
     mini_font = al_load_font(FONT_FILE, 16, 1);
 
     al_set_registers(queue, disp, timer);   
+}
 
-    bool done = false;
-    bool redraw = true;
-    ALLEGRO_EVENT event;
-
+void carrega_arquivos(){
     /* Carrega os arquivos */
     jewel1 = al_load_bitmap(JEWEL1_FILE);
     jewel2 = al_load_bitmap(JEWEL2_FILE);
@@ -121,7 +153,8 @@ int main(){
     match = al_load_sample(MATCH_SOUND_FILE);
     level_done = al_load_sample(LEVEL_SOUND_FILE);
     new_game = al_load_sample(NEW_GAME_SOUND_FILE);
-
+    flip = al_load_sample(FLIP_SOUND_FILE);
+    denied = al_load_sample(DENIED_SOUND_FILE);
 
     //Liga o stream no mixer
     al_attach_audio_stream_to_mixer(music, al_get_default_mixer());
@@ -129,34 +162,18 @@ int main(){
     //Define que o stream vai tocar no modo repeat
     al_set_audio_stream_playmode(music, ALLEGRO_PLAYMODE_LOOP);
 
-    /* Fim da configuracao do Allegro */
+    highscore_file = fopen(HIGHSCORE_FILE, "r");
+    char higscore_string[LINESIZE];
+    fgets(higscore_string, LINESIZE, highscore_file);
+    highscore = atoi(higscore_string);
     
-    /* Configuracoes do jogo */
-    srand(time(NULL));
-    score = 0;
-    level = 1;
-    goal = 1000 * score;
-    highscore = 0;
-    /* Fim das configuracoes do jogo */
+}
 
-    /* Flags de Controle*/
-    int pickupFlag = 0;
-    int menuFlag = 1;
-    int exitFlag = 0;
-    int animationFlag = 0;
-    int screenstatus = -1;
-    int flipFlag = 0;
+void executa_jogo(){
 
-    /* Posicao do Mouse */
-    float lastx, lasty;
-    float x, y;
-
-    /* Easter Egg */
-    int count = 0;
-
-    /* Comeco do jogo */
     al_set_display_icon(disp, logo);
     al_start_timer(timer);
+
 
     while(1){
         al_wait_for_event(queue, &event);
@@ -180,24 +197,29 @@ int main(){
             case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
                 switch(screenstatus){
                     case -1: // Logica do Menu Inicial
-                        if(event.mouse.x >= 415 && event.mouse.x <= 550){
-                            if(event.mouse.y >= 310 && event.mouse.y <= 350){
+                        if(x >= 415 && x <= 550){
+                            if(y >= 310 && y <= 350){
                                 al_set_audio_stream_playing(music,0);
                                 al_play_sample(new_game, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
                                 jogo = novo_jogo();
                                 menuFlag = 0;
                                 screenstatus = 0;
-                            } if(event.mouse.y >= 360 && event.mouse.y <= 400){
+                                score = 0;
+                                level = 1;
+                                jogadas = 35 * level;
+                                fixedGoal = 1000 * level;
+                                goal = fixedGoal;
+                            } if(y >= 360 && y <= 400){
                                 //enter help mode
                                 screenstatus = 1;
-                            }if(event.mouse.y >= 410 && event.mouse.y <= 450){
+                            }if(y >= 410 && y <= 450){
                                 //exit game
                                 done = true;
                             }
                         }
                         break;
                     case 1: // Logica do menu de ajuda
-                        if(event.mouse.x >= 670 && event.mouse.x <= 690 && event.mouse.y >= 200 && event.mouse.y <= 220){
+                        if(x >= 670 && x <= 690 && y >= 200 && y <= 220){
                             if(menuFlag == 1){
                                 screenstatus = -1;
                             } else {
@@ -207,46 +229,65 @@ int main(){
                         break;
                     default:
                         // Se o jogador pede ajuda
-                        if(event.mouse.x >= 900 && event.mouse.x <= 1050 && event.mouse.y >= 20 && event.mouse.y <= 80) {
+                        if(x >= 900 && x <= 1050 && y >= 20 && y <= 80) {
                             screenstatus = 1;
                             count = 0;
                         }
                         // Area do jogo
-                        if(event.mouse.x >= 130 && event.mouse.x <= 664 && event.mouse.y >= 60 && event.mouse.y <= 560){
-                            if(exitFlag == 0){
+                        if(x >= 130 && x <= 684 && y >= 60 && y <= 616){
+                            if(exitFlag == 0 && gameOverFlag == 0){
                                     //O jogador acabou de pegar uma joia
-                                    lastx = event.mouse.x;
-                                    lasty = event.mouse.y;
+                                    lastx = x;
+                                    lasty = y;
                                     pickupFlag = 1;
-                                al_play_sample(level_done, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
                             }
                             count = 0;
                         }
                         // Easter egg
-                        if(event.mouse.x >= 855 && event.mouse.x <= 948 && event.mouse.y >= 156 && event.mouse.y <= 233) {
+                        if(x >= 855 && x <= 948 && y >= 156 && y <= 233) {
                             count++;
                             if(count >= 18){
+                                al_play_sample(flip, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
                                 flipFlag = 1;
                             }
                         }
 
                         // Se o usuario quer sair
-                        if(event.mouse.x >= 900 && event.mouse.x <= 1050 && event.mouse.y >= 570 && event.mouse.y <= 630) {
+                        if(x >= 900 && x <= 1050 && y >= 570 && y <= 630) {
                             exitFlag = 1;
                             count = 0;
                         }
                         // Volta pro menu inicial
-                        if(exitFlag == 1 && event.mouse.x >= 540 && event.mouse.x <= 640 && event.mouse.y >= 345 && event.mouse.y <= 385){
+                        if(exitFlag == 1 && x >= 540 && x <= 640 && y >= 345 && y <= 385){
                             al_set_audio_stream_playing(music,1);
                             al_rewind_audio_stream(music);
                             screenstatus = -1;
                             menuFlag = 1;
                             flipFlag = 0;
                             exitFlag = 0;
+                            level = 1;
                         }
-                        
+                        // Se o jogador não tem mais movimentos disponiveis
+                        if(levelCompleteFlag == 1 && x >= 380 && x <= 640 && y >= 345 && y <= 385){
+                            level++;
+                            fixedGoal = fixedGoal + (750*level);
+                            goal = fixedGoal - score;
+                            levelCompleteFlag = 0;
+                            jogadas = 35 * level;
+                            jogo = novo_jogo();
+                        }
+                        // Se o jogador não tem mais movimentos disponiveis
+                        if(gameOverFlag == 1 && x >= 380 && x <= 640 && y >= 345 && y <= 385){
+                            al_set_audio_stream_playing(music,1);
+                            al_rewind_audio_stream(music);
+                            screenstatus = -1;
+                            menuFlag = 1;
+                            flipFlag = 0;
+                            gameOverFlag = 0;
+                            level = 1;
+                        }
                         // Volta pro jogo
-                        if(exitFlag == 1 && event.mouse.x >= 380 && event.mouse.x <= 480 && event.mouse.y >= 345 && event.mouse.y <= 385){
+                        if(exitFlag == 1 && x >= 380 && x <= 480 && y >= 345 && y <= 385){
                             exitFlag = 0;
                         }
                         break;
@@ -257,27 +298,43 @@ int main(){
 		    case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
                 if(screenstatus == 0 && exitFlag == 0){
                     if(pickupFlag == 1){
-                        
-                        int oldColumn = (lastx - 60 )/60.0;
-                        int oldRow  = lasty / 60.0;
-                        int newColumn = (event.mouse.x - 60 )/60.0;
-                        int newRow  = event.mouse.y / 60.0;
-                        
+                        int oldColumn = get_index(lastx, 0);
+                        int oldRow  = get_index(lasty, 1);
+                        int newColumn = get_index(x, 0);
+                        int newRow  = get_index(y, 1);
+
                         if(sao_vizinhos(oldColumn, oldRow, newColumn, newRow) == 1){                        
                             if(troca_valida(jogo, oldColumn, oldRow, newColumn, newRow) == 1){
-                            //     pontos = troca_pecas(jogo, oldColumn, oldRow, newColumn, newRow);
-                            //     score += pontos;
+                                jogadas--;
+                                al_play_sample(match, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
+                                while(checa_mapa(jogo) == 1){
+                                    pontos = troca_pecas(jogo, oldColumn, oldRow, newColumn, newRow);
+                                    score += pontos;
+                                    goal -= pontos;
+                                    atualiza_mapa(jogo);
+                                }
 
+                                if(score >= fixedGoal){
+                                    al_play_sample(level_done, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
+                                    levelCompleteFlag = 1;
+                                }
+                            } else {
+                                al_play_sample(denied, 1.0, 0.0,1.0,ALLEGRO_PLAYMODE_ONCE,NULL);
                             }
+                            
+                        }   
+
+                        if(score > highscore){
+                            highscore = score;
                         }
-                        
+                        if(jogadas == 0){
+                            gameOverFlag = 1;
+                        }
                         lastx = lasty = 0;
                         pickupFlag = 0;
                     }
-
                 }
                 break;
-
             // Apertar tecla
             case ALLEGRO_EVENT_KEY_DOWN:
                 if(event.keyboard.keycode == ALLEGRO_KEY_F1){
@@ -318,13 +375,19 @@ int main(){
                     break;
                 default:
                     if(flipFlag == 1){
-                        draw_scenario(big_font, disp, flip_background, spacing, x, y, score, goal, highscore); // Mapa do jogo 
+                        draw_scenario(big_font, disp, flip_background, spacing, x, y, score, goal, highscore, jogadas); // Mapa do jogo 
                     } else {
-                        draw_scenario(big_font, disp, background, spacing, x, y, score, goal, highscore); // Mapa do jogo 
+                        draw_scenario(big_font, disp, background, spacing, x, y, score, goal, highscore, jogadas); // Mapa do jogo 
                     }
-                    draw_grid(jogo, jewel1,  jewel2,  jewel3,  jewel4); // Joias do jogo
+                    draw_grid(jogo, jewel1,  jewel2,  jewel3,  jewel4, jewel5, jewel6); // Joias do jogo
                     if(exitFlag == 1){
                         draw_exit_confirmation(big_font, mini_font, disp, background, spacing, x, y); // Tela de saída do jogo
+                    }
+                    if(levelCompleteFlag == 1){
+                        draw_level_complete_confirmation(big_font, mini_font, disp, background, spacing, x, y); // Tela de fase concluida
+                    }
+                    if(gameOverFlag == 1){
+                        draw_game_over_confirmation(big_font, mini_font, disp, background, spacing, x, y); // Tela de fim do jogo
                     }
                     break;
             }
@@ -337,26 +400,35 @@ int main(){
         }
     }
 
-    //stop_allegro(); <- send all "al_destroy here"
-    al_destroy_bitmap(jewel1);
-    al_destroy_bitmap(jewel2);
-    al_destroy_bitmap(jewel3);
-    al_destroy_bitmap(jewel4);
-    al_destroy_bitmap(jewel5);
-    al_destroy_bitmap(jewel6);
-    al_destroy_bitmap(background);
-    al_destroy_bitmap(flip_background);
-    al_destroy_bitmap(spacing);
-    al_destroy_bitmap(logo);
-    al_destroy_sample(match);
-    al_destroy_sample(level_done);
-    al_destroy_sample(new_game);
-    al_destroy_audio_stream(music);
-    al_destroy_font(big_font);
-    al_destroy_font(mini_font);
-    al_destroy_display(disp);
-    al_destroy_timer(timer);
-    al_destroy_event_queue(queue);
+}
 
+void encerra_allegro(){
+    
+    destroy_bitmaps(jewel1, jewel2, jewel3, jewel4, jewel5, jewel6, background, flip_background, spacing, logo);
+
+    destroy_samples(flip, denied, match, level_done, new_game, music);
+
+    destroy_fonts(big_font, mini_font);
+
+    destroy_basics(queue, disp, timer);
+}
+
+int main(){
+
+    /* Inicialização do jogo*/
+    inicializa_allegro();
+    memset(key, 0, sizeof(key));
+    carrega_arquivos();
+    
+    /* Configuracoes do jogo */
+    srand(time(NULL));
+    /* Fim das configuracoes do jogo */
+
+    /* Rodando o jogo */
+    executa_jogo();
+    
+    /* Finalizando o jogo */
+    encerra_allegro();
+    encerra_jeweled(jogo, highscore, highscore_file, HIGHSCORE_FILE);
     return 0;
 }

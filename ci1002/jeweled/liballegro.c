@@ -64,18 +64,18 @@ void draw_home_screen(ALLEGRO_FONT* title_font, ALLEGRO_FONT* font, ALLEGRO_DISP
     al_draw_textf(font, al_map_rgb(0, 0, 0), 480, 420, -1, "Sair");
 }
 
-void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y, int score, int goal, int highscore){
+void draw_scenario(ALLEGRO_FONT* font, ALLEGRO_DISPLAY *display,  ALLEGRO_BITMAP *background, ALLEGRO_BITMAP *spacing, float x, float y, int score, int goal, int highscore, int Jogadas){
     
     al_draw_bitmap(background, 0, 0, 0);
 
 
-    al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "X: %.1f Y: %.1f", x, y);
+    al_draw_textf(font, al_map_rgb(255, 255, 255), 0, 0, 0, "Jogadas restantes: %d", Jogadas);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 285, -1, "High Score:");
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 305, -1, "%d", highscore);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 345, -1, "Pontuação atual:");
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 365, -1, "%d", score);
     al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 405, -1, "Próxima fase em:");
-    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 425, -1, "%d pontos", (goal) - score);
+    al_draw_textf(font, al_map_rgb(0, 0, 0), 800, 425, -1, "%d pontos", goal);
     //al_draw_filled_rectangle(x, y, x + 10, y + 10, al_map_rgb(255, 0, 0));
     if(x >= 900 && x <= 1050 && y >= 20 && y <= 80){
         al_draw_filled_rectangle(900, 20, 1050, 80, al_map_rgba(250, 166, 81, 220));
@@ -160,6 +160,59 @@ void draw_exit_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALL
     al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 590, 355, -1, "Sair");
 }
 
+void draw_level_complete_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY* display,  ALLEGRO_BITMAP* background, ALLEGRO_BITMAP* spacing, float x, float y){
+
+    
+    //card box
+    al_draw_filled_rectangle(324, 213, 680, 368, al_map_rgba(0, 94, 171, 220));
+    al_draw_line(324, 213, 324, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(680, 213, 680, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 213, 683, 213, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 368, 683, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 263, -1, "Fase completa!");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 298, -1, "Boa sorte no próximo nível");
+
+    if(x >= 380 && x <= 640 && y >= 345 && y <= 385){
+        al_draw_filled_rectangle(380, 345, 640, 385, al_map_rgba(250, 50, 50, 255));
+    } else {
+        al_draw_filled_rectangle(380, 345, 640, 385, al_map_rgba(250, 0, 0, 255));
+    }
+
+    al_draw_line(380, 345, 380, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(640, 345, 640, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(378, 345, 642, 345, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(378, 385, 642, 385, al_map_rgb_f(0, 0, 0), 3);
+
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 510, 355, -1, "Continuar o jogo");
+}
+
+
+void draw_game_over_confirmation(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font, ALLEGRO_DISPLAY* display,  ALLEGRO_BITMAP* background, ALLEGRO_BITMAP* spacing, float x, float y){
+
+    
+    //card box
+    al_draw_filled_rectangle(324, 213, 680, 368, al_map_rgba(0, 94, 171, 220));
+    al_draw_line(324, 213, 324, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(680, 213, 680, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 213, 683, 213, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_line(321, 368, 683, 368, al_map_rgb_f(0, 0, 0), 5);
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 263, -1, "Fim de jogo");
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 502, 298, -1, "Você ficou sem movimentos");
+
+    if(x >= 380 && x <= 640 && y >= 345 && y <= 385){
+        al_draw_filled_rectangle(380, 345, 640, 385, al_map_rgba(250, 50, 50, 255));
+    } else {
+        al_draw_filled_rectangle(380, 345, 640, 385, al_map_rgba(250, 0, 0, 255));
+    }
+
+    al_draw_line(380, 345, 380, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(640, 345, 640, 385, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(378, 345, 642, 345, al_map_rgb_f(0, 0, 0), 3);
+    al_draw_line(378, 385, 642, 385, al_map_rgb_f(0, 0, 0), 3);
+
+    al_draw_textf(mini_font, al_map_rgb(0, 0, 0), 510, 355, -1, "Voltar ao menu iniciar");
+}
+
 void draw_jewel(ALLEGRO_BITMAP* jewel, float x, float y, int flags){
     al_draw_line(x, y, x, y+64, al_map_rgb(207, 123, 40), 3);
     al_draw_line(x+64, y, x+64, y+64, al_map_rgb(207, 123, 40), 3);
@@ -167,4 +220,37 @@ void draw_jewel(ALLEGRO_BITMAP* jewel, float x, float y, int flags){
     al_draw_line(x, y+64, x+64, y+64, al_map_rgb(207, 123, 40), 3);
     al_draw_filled_rectangle(x, y, x+64, y+64, al_map_rgba(0, 94, 171, 100));
     al_draw_bitmap(jewel, x, y, 0);
+}
+
+void destroy_bitmaps(ALLEGRO_BITMAP* jewel1, ALLEGRO_BITMAP* jewel2, ALLEGRO_BITMAP* jewel3, ALLEGRO_BITMAP* jewel4, ALLEGRO_BITMAP* jewel5, ALLEGRO_BITMAP* jewel6, ALLEGRO_BITMAP* background, ALLEGRO_BITMAP* spacing, ALLEGRO_BITMAP* flip_background, ALLEGRO_BITMAP* logo){
+    al_destroy_bitmap(jewel1);
+    al_destroy_bitmap(jewel2);
+    al_destroy_bitmap(jewel3);
+    al_destroy_bitmap(jewel4);
+    al_destroy_bitmap(jewel5);
+    al_destroy_bitmap(jewel6);
+    al_destroy_bitmap(background);
+    al_destroy_bitmap(flip_background);
+    al_destroy_bitmap(spacing);
+    al_destroy_bitmap(logo);
+}
+
+void destroy_samples(ALLEGRO_SAMPLE* flip, ALLEGRO_SAMPLE* denied, ALLEGRO_SAMPLE* match, ALLEGRO_SAMPLE* level_done, ALLEGRO_SAMPLE* new_game, ALLEGRO_AUDIO_STREAM* music){
+    al_destroy_sample(match);
+    al_destroy_sample(flip);
+    al_destroy_sample(denied);
+    al_destroy_sample(level_done);
+    al_destroy_sample(new_game);
+    al_destroy_audio_stream(music);
+}
+
+void destroy_fonts(ALLEGRO_FONT* big_font, ALLEGRO_FONT* mini_font){
+    al_destroy_font(big_font);
+    al_destroy_font(mini_font);
+}
+
+void destroy_basics(ALLEGRO_EVENT_QUEUE* queue, ALLEGRO_DISPLAY* disp, ALLEGRO_TIMER* timer){
+    al_destroy_display(disp);
+    al_destroy_timer(timer);
+    al_destroy_event_queue(queue);
 }
