@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define SIZE 1000000
+
 int buscaBinaria(int* vetor, int ini, int fim, int valor){
     if(fim < ini){
         return -1;
@@ -18,13 +20,13 @@ int buscaBinaria(int* vetor, int ini, int fim, int valor){
 
 int main(int argc, char* argv[]){ 
     int *vetor; 
-    vetor = (int *)malloc(1000 * sizeof(int)); 
+    vetor = (int *)malloc(SIZE * sizeof(int)); 
     int value = 0;
-    for(int i = 0; i < 1000; i ++){ 
+    for(int i = 0; i < SIZE; i ++){ 
         vetor[i] = value;
         value ++;
     }
-    int pos = buscaBinaria(vetor, 0, 999, atoi(argv[1]));
+    int pos = buscaBinaria(vetor, 0, SIZE-1, atoi(argv[1]));
     printf("pos: %d", pos);
     free(vetor);
     return 0; 
