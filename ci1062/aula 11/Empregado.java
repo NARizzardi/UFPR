@@ -31,6 +31,11 @@ public class Empregado implements Comparable<Empregado>{
             return 1;
         }
         
+        if(this.nome.compareTo(e.nome) == -1){
+            return -1;
+        } else if(this.nome.compareTo(e.nome) == 1){
+            return 1;
+        }
         return 0;
     }
 }
