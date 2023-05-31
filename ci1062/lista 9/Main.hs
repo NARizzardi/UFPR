@@ -1,3 +1,5 @@
 module Main where
+    import Diversos
     main = do
-        PutStrLn "Funcoes Diversas"
+        putStrLn "Funcoes Diversas"
+        
