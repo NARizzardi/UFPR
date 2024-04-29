@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUFF_SIZE 64 //DEFINA O TAMANHO DO BUFFER AQUI
+#define BUFF_SIZE 85 //DEFINA O TAMANHO DO BUFFER AQUI
 
 void execute() {
   system("sudo echo 0 > /proc/sys/kernel/randomize_va_space");
@@ -18,11 +18,11 @@ void debug() {
 
 void crack() {
   FILE *f = fopen("./teste.in", "w+");
-  char buff[BUFF_SIZE];
-  buff[61] = 3;
+  char password_buff[BUFF_SIZE] = "SB0123456789ABC\nSB0123456789ABCSB0123456789ABCSB0123456789ABC\nA BANDEIRA E MINHA!\n";
+  
   //IMPLEMENTE A ENTRADA PARA ALCANÇAR OS OBJETIVOS DO TRABALHO AQUI (USAR A ENTRADA PADRÃO)
-  fwrite(buff, 1, BUFF_SIZE, f);  
-  fclose(f);
+  fwrite(password_buff, 1, BUFF_SIZE, f);
+fclose(f);
 
   system("sudo echo 0 > /proc/sys/kernel/randomize_va_space");
   system("./ctc < teste.in");
