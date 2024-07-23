@@ -8,8 +8,8 @@ extern void *topo_inicial_heap;	/* Você precisa ter a variável global que arma
 							substituir as ocorrências por ele aqui. */
 
 int main() { 
-	printf("Trabalho final de Software Basico Nicolas Andre Rizzardi GRR20206152\n");
-	printf("========================= ROTINAS DE TESTE =========================\n");
+	printf("Software Basico CI1064 Trabalho Final Nicolas Andre Rizzardi GRR20206152\n");
+	printf("=========================== ROTINAS DE TESTE ===========================\n");
 	
 	setup_brk();
 	void *initial_brk = topo_inicial_heap;

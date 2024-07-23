@@ -42,9 +42,9 @@ memory_free:
     pushq %rbp
     movq %rbp, %rsp
     
-    movq %rdi, rbx
-    subq HEADER, %rbx
-    movq $0, (%rbx)                 # Marca o bloco como livre
+    movq %rdi, %r8                 # Move primeiro argumento presente em rdi
+    subq HEADER, %r8
+    movq $0, (%r8)                 # Marca o bloco como livre
 
     popq %rbp
     ret
@@ -59,6 +59,99 @@ memory_alloc:
 memory_mapping: 
     pushq %rbp
     movq %rbp, %rsp
+    movq inicio_heap, %r14
+    movq topo_heap, %r15
 
-    popq %rbp
-    ret
+    initWhileImprime:
+        cmpq %r15, %r14
+        jge fimWhileImprime
+        call imprimeHeader
+
+        movq (%r14), %r12
+        movq 8(%r14), %r13
+        cmpq $1, %r12
+        je imprimeOcupado
+
+        movq %r13, %rdi
+        call imprimeBlocoLivre
+        jmp incrementaAtual
+
+    imprimeOcupado:
+        movq %r13, %rdi
+        call imprimeBlocoOcupado
+
+    incrementaAtual:
+        addq 8(%r14), %r14
+        addq HEADER, %r14
+        jmp initWhileImprime
+    
+    fimWhileImprime:
+        movq $10, %rdi
+        call putchar
+        movq $10, %rdi
+        call putchar
+        movq $10, %rdi
+        call putchar
+        movq $10, %rdi
+        call putchar
+        popq %rbp
+        ret
+
+imprimeHeader:
+    pushq %rbp
+    movq %rbp, %rsp
+    movq $0, %r10
+
+    initWhileHeader:
+        cmpq HEADER, %r10
+        jge fimWhileHeader
+        movq $35, %rdi
+        call putchar
+        addq $1, %r10
+        jmp initWhileHeader
+
+    fimWhileHeader:
+        popq %rbp
+        ret
+
+
+
+imprimeBlocoOcupado:
+    pushq %rbp
+    movq %rbp, %rsp
+    movq %rdi, %rbx
+    movq $0, %r10
+    
+    initWhileOcupado:
+        cmpq %rbx, %r10
+        jge fimWhileOcupado
+        movq $43, %rdi
+        call putchar
+        addq $1, %r10
+        jmp initWhileOcupado
+
+    fimWhileOcupado:
+        popq %rbp
+        ret
+
+
+
+
+imprimeBlocoLivre:
+    pushq %rbp
+    movq %rbp, %rsp
+    movq %rdi, %rbx
+    movq $0, %r10
+    
+    initWhileLivre:
+        cmpq %rbx, %r10
+        jge fimWhileOcupado
+        movq $45, %rdi
+        call putchar
+        addq $1, %r10
+        jmp initWhileLivre
+
+
+    fimWhileLivre:
+        popq %rbp
+        ret
