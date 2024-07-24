@@ -16,22 +16,22 @@ delta:
     imul %rbx, %rbx      # b*b
     imul $4, %rax        # 4*a
     imul %rax, %rcx      # 4*a*c
-    subq %rcx, %rbx      # b*b - 4*a*c
 
-    movq %rbx, -8(%rbp)   # move resultado da operacao para o endereco de retorno
+    movq %rbx, -8(%rbp)  # move b*b para o endereco de retorno -8
+    movq %rcx, -16(%rbp) # move 4*a*c para o endereco de retorno -16
 
-    popq %rax            # remove c da pilha
-    popq %rax            # remove b da pilha
-    popq %rax            # remove a da pilha
-    popq %rdi            # salva o resultado
+    popq %rax
+    popq %rax
+    popq %rax
+    popq %rdi
     popq %rbp
     ret
 
 
 _start:
     call delta
-    cmpq $0, %rax
-    jle else
+    cmpq %rdi, %rax
+    jg else
 
      if:
         movq $1, %rdi
