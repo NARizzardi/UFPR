@@ -1,22 +1,23 @@
 .section .data
     HEADER: .quad 16                # 16 bytes de metadata
+    TAM_BLOCO: .quad 4096
     topo_inicial_heap: .quad 0
     inicio_heap: .quad 0
     topo_heap: .quad 0
 
 .section .text
-.global setup_brk
-.global dismiss_brk
-.global memory_alloc
-.global memory_free
-.global memory_mapping
+.globl setup_brk
+.globl dismiss_brk
+.globl memory_alloc
+.globl memory_free
+.globl memory_mapping
 
 setup_brk:
     pushq %rbp
     movq %rbp, %rsp
 
     movq $12, %rax                  # Altera brk, de acordo com o livro
-    movq $0, %rdi                   # Retorna o valor de brk
+    movq TAM_BLOCO, %rdi            # Retorna o valor de brk
     syscall
                                  
     movq %rax, topo_inicial_heap    # Define as variáveis globais inicialmente
