@@ -14,7 +14,6 @@ int main() {
 	setup_brk();
 	void *initial_brk = topo_inicial_heap;
 	void *f_pnt, *s_pnt, *t_pnt;
-	memory_mapping();
 
 	f_pnt = memory_alloc(100);
 	printf("==>> ALOCANDO UM ESPAÇO DE 100 BYTES:\n");
