@@ -12,6 +12,9 @@ memalloc.o: memalloc.s
 main.o: main.c memalloc.h
 	$(CC) $(CFLAGS) -c main.c -o main.o
 
+run:
+	./main
+
 clean:
 	rm ./*.o
 
