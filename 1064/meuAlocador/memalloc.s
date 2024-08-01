@@ -1,6 +1,5 @@
 .section .data
     HEADER: .quad 16                 # 16 bytes de metadata, 8 para uso + 8 para tamanho
-    TAM_BLOCO: .quad 1024
     .globl topo_inicial_heap
     topo_inicial_heap: .quad 0
 
