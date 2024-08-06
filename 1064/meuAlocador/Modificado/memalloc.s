@@ -185,7 +185,7 @@ memory_alloc:
 
         movq $1, (%r12)              # Marca bloco como ocupado
 
-
+        addq $8, %r12                # Move para a secao de tamanho do bloco
         jmp end_allocation
     
 # --------------------------------------------------------
@@ -206,7 +206,7 @@ memory_alloc:
         movq %rsi, (%r13)            # Define o tamanho do novo bloco (diferenca do espaco livre pelo total usado)
         subq $16, (%r13)             # Diminui o tamanho que a header ocupa do tamanho dos dados
 
-        addq $8, %r12
+        addq $8, %r12                # Move para a secao de tamanho do bloco
         jmp end_allocation
 
 # --------------------------------------------------------
