@@ -109,7 +109,7 @@ memory_free:
 
 # --------------------------------------------------------
 # %r15 - Parametro (tamanho a ser alocado)
-# %r14 - Maior valor encontrado (utilizado pelo worst-fit)
+# %r14 - Menor valor encontrado (utilizado pelo best-fit)
 # %r13 - Registrador do bloco repartido 
 # %r12 - Endereco do bloco a ser utilizado 
 # %r10 - Registradores com valores usados em comparacoes
@@ -134,7 +134,7 @@ memory_alloc:
 
 # --------------------------------------------------------
 
-    worst_fit:
+    best_fit:
         movq $0, %r14                # Como comeca sem um bloco, maior bloco comeca com 0
 
         # --------------------------------------------------------
@@ -145,14 +145,18 @@ memory_alloc:
 
             cmpq $1, (%rbx)          # Verifica se o espaco atual esta ocupado
             je find_next_block
-            
+
             cmpq %r15, +8(%rbx)      # Compara se o espaco e suficiente, usando +8 para acessar o dado de tamanho sem acrescentar no endereco de %rbx
             jl find_next_block
 
-            cmpq %r14, +8(%rbx)      # Compara se o valor atual e maior que o valor armazenado
-            jle find_next_block
+            cmpq $0, %r14
+            je end_new_alloc
 
-            movq +8(%rbx), %r14      # Se for maior marca como maior
+            cmpq %r14, +8(%rbx)      # Compara se o valor atual e menor que o valor armazenado
+            jge find_next_block
+
+            end_new_alloc:
+            movq +8(%rbx), %r14      # Se for menor marca como menor
             movq %rbx, %r12          # Salva o endereco do bloco que (provavelmente) sera utilizado
 
             # --------------------------------------------------------    
