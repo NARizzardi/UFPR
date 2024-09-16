@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "floatType.h"
 #include <math.h>
+#include <fenv.h>
 
 /*
   #include <float.h>
@@ -25,8 +26,7 @@ int main(int argc, char const *argv[]){
   //value_n_interaction.f = nextInteraction(interaction_quantity);
   Float_t value_previous_interaction;
   /* End of variable declaration section */
-  while(interaction_quantity < 50){
-  //while(!lowerThanTolerance(tolerance, aprox_absolute_error)){
+  while(!lowerThanTolerance(tolerance, aprox_absolute_error)){
     value_previous_interaction.f = value_n_interaction.f;
     value_n_interaction.f += nextInteraction(interaction_quantity);
     interaction_quantity++;
