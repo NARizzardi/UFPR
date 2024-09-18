@@ -13,7 +13,9 @@
 
 int main(int argc, char const *argv[]){
   /* Variable declaration section */
+  fesetround(FE_DOWNWARD);
   Float_t tolerance;
+  int ulps;
   printf("Entre com a tolerancia: ");
   scanf("%lf", &tolerance.f);
 
@@ -41,14 +43,14 @@ int main(int argc, char const *argv[]){
   aprox_absolute_error.i = doubleToHexCoverter(aprox_absolute_error.f);
   real_absolute_error.i = doubleToHexCoverter(real_absolute_error.f);
   /* End of hex convertion section */
-
+  ulps = value_n_interaction.i - value_previous_interaction.i;
   /* Printing section */
   printf("%d\n", interaction_quantity);
   printFloat_t(aprox_absolute_error);
   printFloat_t(real_absolute_error);
   printFloat_t(value_n_interaction);
   printFloat_t(value_previous_interaction);
-  printf("%d\n", interaction_quantity-1);
+  printf("%d\n", ulps);
   /* End of printing section */
 
   
