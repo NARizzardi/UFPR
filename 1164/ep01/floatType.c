@@ -8,26 +8,30 @@
 /*
  Function used to calculate the next term of the summatory
 */
+
+double calculateDenominator(int denominatorFactorial){
+    double den = 1;
+
+    for(int i = 1; i <= denominatorFactorial; i++){
+        den *= i;
+    }
+    return den;
+}
+
 double nextInteraction(int interaction_quantity){
     double ret = 1;
     double denominator, numerator;
     double twoPotency = 1;
     double kFactorial = 1;
     int denominatorFactorial;
-    denominator = 1;
     denominatorFactorial = (2*interaction_quantity) + 1;
 
     for(int k = interaction_quantity; k > 0; k--){
         kFactorial = kFactorial * k;
         twoPotency = twoPotency * 2;
-        denominator = denominator * denominatorFactorial;
-
-        denominatorFactorial-- ;
-
-        denominator = denominator * denominatorFactorial;
-
-        denominatorFactorial--;
     }
+    
+    denominator = calculateDenominator(denominatorFactorial);
 
     kFactorial = kFactorial * kFactorial;
     numerator = twoPotency * kFactorial;
@@ -71,6 +75,6 @@ double calculateNewError(double value_n_interaction, double value_previous_inter
  * suas partes na forma de inteiros */
 void printFloat_t( Float_t num )
 {
-   printf("%.15e %08lX\n",
+   printf("%.15e %lX\n",
             num.f, num.i); 
 } 
