@@ -7,16 +7,16 @@ LFLAGS = -lm
 	objects = pi.o floatType.o
 
 all: pi.o floatType.o
-	$(CC) $(CFLAGS) $(LFLAGS) pi.o floatType.o -o pi
+	$(CC) $(CFLAGS) pi.o floatType.o -o pi $(LFLAGS) && make clean
 
 pi.o: pi.c floatType.h
-	$(CC) $(CFLAGS) $(LFLAGS) -c pi.c
+	$(CC) $(CFLAGS) -c pi.c $(LFLAGS)
 
 floatType.o: floatType.c
-	$(CC) $(CFLAGS) $(LFLAGS) -c floatType.c
+	$(CC) $(CFLAGS) -c floatType.c $(LFLAGS)
 
 run:
-	./pi $(tolerance)
+	./pi
 
 clean:
 	rm -f $(objects)
