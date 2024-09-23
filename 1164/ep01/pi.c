@@ -16,11 +16,12 @@ int main(int argc, char const *argv[]){
   /* Variable declaration section */
   fesetround(FE_DOWNWARD);
   Float_t tolerance;
-  int ulps;
-  scanf("%lf", &tolerance.f);
+  int ulps, n_flops;
+  //scanf("%lf", &tolerance.f);
+  tolerance.f = atof(argv[1]);
 
   int interaction_quantity = 0;
-
+  n_flops = 0;
   Float_t aprox_absolute_error, real_absolute_error;
   aprox_absolute_error.f = tolerance.f+1;
   Float_t value_n_interaction;
@@ -33,7 +34,7 @@ int main(int argc, char const *argv[]){
   /* Start of fe_downward rounding summatory */
   while(!lowerThanTolerance(tolerance, aprox_absolute_error)){
     value_previous_interaction.f = value_n_interaction.f;
-    value_n_interaction.f += nextInteraction(interaction_quantity);
+    value_n_interaction.f += nextInteraction(interaction_quantity, &n_flops);
     interaction_quantity++;
     aprox_absolute_error.f = calculateNewError(value_n_interaction.f, value_previous_interaction.f);
   }
@@ -45,13 +46,14 @@ int main(int argc, char const *argv[]){
   value_n_interaction.f = 0;
   interaction_quantity = 0;
   aprox_absolute_error.f = tolerance.f+1;
-
+  n_flops = 4;
 
   while(!lowerThanTolerance(tolerance, aprox_absolute_error)){
     value_previous_interaction.f = value_n_interaction.f;
-    value_n_interaction.f += nextInteraction(interaction_quantity);
+    value_n_interaction.f += nextInteraction(interaction_quantity, &n_flops);
     interaction_quantity++;
     aprox_absolute_error.f = calculateNewError(value_n_interaction.f, value_previous_interaction.f);
+    n_flops += 2;
 
   }
 
@@ -65,7 +67,7 @@ int main(int argc, char const *argv[]){
   real_absolute_error.i = doubleToHexCoverter(real_absolute_error.f);
   /* End of hex convertion section */
 
-  ulps = value_n_interaction.i - pi_fedownward.i - 1;;
+  ulps = value_n_interaction.i - pi_fedownward.i - 1;
 
   /* Printing section */
   printf("%d\n", interaction_quantity);
@@ -74,6 +76,7 @@ int main(int argc, char const *argv[]){
   printFloat_t(pi_fedownward);
   printFloat_t(value_n_interaction);
   printf("%d\n", ulps);
+  printf("%d\n\n", n_flops);
   /* End of printing section */
 
   return 0;

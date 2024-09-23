@@ -9,16 +9,17 @@
  Function used to calculate the next term of the summatory
 */
 
-double calculateDenominator(int denominatorFactorial){
+double calculateDenominator(int denominatorFactorial, int* n_flops){
     double den = 1;
 
     for(int i = 1; i <= denominatorFactorial; i++){
         den *= i;
+        n_flops++;
     }
     return den;
 }
 
-double nextInteraction(int interaction_quantity){
+double nextInteraction(int interaction_quantity, int* n_flops){
     double ret = 1;
     double denominator, numerator;
     double twoPotency = 1;
@@ -29,15 +30,15 @@ double nextInteraction(int interaction_quantity){
     for(int k = interaction_quantity; k > 0; k--){
         kFactorial = kFactorial * k;
         twoPotency = twoPotency * 2;
+        n_flops+=2;
     }
     
-    denominator = calculateDenominator(denominatorFactorial);
+    denominator = calculateDenominator(denominatorFactorial, n_flops);
 
     kFactorial = kFactorial * kFactorial;
     numerator = twoPotency * kFactorial;
     ret = numerator / denominator;
-    ret = ret;
-    
+    n_flops += 3;    
     return ret * 2;
 }
 
