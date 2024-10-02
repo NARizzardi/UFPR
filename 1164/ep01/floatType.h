@@ -6,7 +6,7 @@ typedef union {
     double f;
 } Float_t;
 
-double nextInteraction(int interaction_quantity, int* n_flops);
+double nextInteraction(int interaction_quantity, long long int* n_flops);
 int lowerThanTolerance(Float_t tolerance, Float_t aprox_absolute_error);
 double calculateNewError(double value_n_interaction, double value_previous_interaction);
 uint64_t doubleToHexCoverter(double d);

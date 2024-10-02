@@ -9,7 +9,7 @@
  Function used to calculate the next term of the summatory
 */
 
-double calculateDenominator(int denominatorFactorial, int* n_flops){
+double calculateDenominator(int denominatorFactorial, long long int* n_flops){
     double den = 1;
 
     for(int i = 1; i <= denominatorFactorial; i++){
@@ -19,7 +19,7 @@ double calculateDenominator(int denominatorFactorial, int* n_flops){
     return den;
 }
 
-double nextInteraction(int interaction_quantity, int* n_flops){
+double nextInteraction(int interaction_quantity, long long int* n_flops){
     double ret = 1;
     double denominator, numerator;
     double twoPotency = 1;

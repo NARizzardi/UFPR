@@ -16,9 +16,9 @@ int main(int argc, char const *argv[]){
   /* Variable declaration section */
   fesetround(FE_DOWNWARD);
   Float_t tolerance;
-  int ulps, n_flops;
-  //scanf("%lf", &tolerance.f);
-  tolerance.f = atof(argv[1]);
+  int ulps;
+  long long int n_flops;
+  scanf("%lf", &tolerance.f);
 
   int interaction_quantity = 0;
   n_flops = 0;
@@ -76,7 +76,7 @@ int main(int argc, char const *argv[]){
   printFloat_t(pi_fedownward);
   printFloat_t(value_n_interaction);
   printf("%d\n", ulps);
-  printf("%d\n\n", n_flops);
+  printf("%lld\n\n", n_flops);
   /* End of printing section */
 
   return 0;
