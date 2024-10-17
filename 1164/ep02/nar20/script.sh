@@ -3,34 +3,17 @@
 METRICA="FLOPS_DP"
 CPU=3
 
-LIKWID_HOME=/home/soft/likwid
-CFLAGS="-I${LIKWID_HOME}/include -DLIKWID_PERFMON"
-LFLAGS="-L${LIKWID_HOME}/lib -llikwid"
+
 SCALING_FREQ="/sys/devices/system/cpu/cpufreq/policy${CPU}/scaling_governor"
 
 if [ -w ${SCALING_FREQ} ]; then
     echo "performance" > ${SCALING_FREQ}
 fi
-
 for k in $METRICA
 do
-    likwid-perfctr -C ${CPU} -g ${k} -m ./inversa >${k}_SemOtimiz.log
+    
+    likwid-perfctr -C ${CPU} -g ${k} -m ./inversa | grep -E '^([0-9]+(\.[0-9]+)?)|DP MFLOP/s|FP_ARITH_INST_RETIRED_SCALAR_DOUBLE'| grep -v "AVX"  | sed -e 's/      |       /,/g' -e 's/|      //g' -e 's/   |   PMC1  |     /,/g'  -e 's/|    //g' -e 's/ |//g' -e 's/MFLOP/[MFLOP/g' -e 's/s,/s],/g'
 done
 
-if [ -w ${SCALING_FREQ} ]; then
-    echo "powersave" > ${SCALING_FREQ}
-fi
 
-echo ''
-echo '-----------------------------------'
-if [ -f FLOPS_DP_SemOtimiz.log ]; then
-    echo 'Configuração LIKWID: SUCESSO'
-    echo ''
-    ls FLOPS_*.log
-    echo ''
-else
-    echo 'Configuração LIKWID: FALHA'
-fi
-echo '-----------------------------------'
-echo ''
 

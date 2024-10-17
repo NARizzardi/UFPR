@@ -1,0 +1,34 @@
+Obrigatorios
+Criação de perfis de usuário e gerenciamento de membros da despensa.
+Gerenciamento colaborativo da despensa com múltiplos usuários.
+Cadastro de múltiplas despensas.
+Adicionar produtos e editar quantidades.
+Cadastro de produtos pelo código de barras.
+
+Importantes
+Cadastro de itens da nota fiscal via foto (nome do item, quantidade, preço).
+
+Nice to have
+
+Chat para comunicação sobre a despensa.
+Mostrar custo esperado baseado no histórico de preços.
+Histórico de preços e comparativo.
+Extração da data de vencimento da embalagem por foto.
+Notificação de itens faltando ou próximos do fim.
+Criação de lista de compras automatizada com base em itens próximos do fim ou vencimento.
+Lembrete de quando ir ao mercado.
+Modo controle de dieta (quantidade e frequência de consumo).
+Cálculo de duração de produtos com base no histórico de consumo.
+Notificação de itens próximos do vencimento.
+Sugestão de tamanho da compra com base na frequência de idas ao mercado.
+Verificar estoque antes de comprar e notificar se o item já está disponível.
+Organização da lista de compras por estabelecimentos.
+Despensa pet e controle de saúde de animais.
+Controle de itens farmacêuticos e lembretes de horário de remédios.
+Disponibilidade de itens para receitas sugeridas.
+Controle de estoque doméstico ou empresarial.
+Sugestão de receitas para evitar desperdício de itens.
+Integração com aplicativos como "Menor Preço".
+Integração com a Alexa.
+Integração com SmartWatches.
+Gamificação com lojinha de itens, emotes, títulos e brindes.
