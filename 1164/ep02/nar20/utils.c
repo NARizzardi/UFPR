@@ -1,3 +1,4 @@
+/* Nicolas Andre Rizzardi GRR20206152*/
 #include <stdio.h>
 #include <string.h>
 #include <math.h>

@@ -14,7 +14,7 @@ double calculateDenominator(int denominatorFactorial, long long int* n_flops){
 
     for(int i = 1; i <= denominatorFactorial; i++){
         den *= i;
-        n_flops++;
+       *n_flops++;
     }
     return den;
 }
@@ -30,7 +30,7 @@ double nextInteraction(int interaction_quantity, long long int* n_flops){
     for(int k = interaction_quantity; k > 0; k--){
         kFactorial = kFactorial * k;
         twoPotency = twoPotency * 2;
-        n_flops+=2;
+        *n_flops+=2;
     }
     
     denominator = calculateDenominator(denominatorFactorial, n_flops);
@@ -38,7 +38,7 @@ double nextInteraction(int interaction_quantity, long long int* n_flops){
     kFactorial = kFactorial * kFactorial;
     numerator = twoPotency * kFactorial;
     ret = numerator / denominator;
-    n_flops += 3;    
+    *n_flops += 3;    
     return ret * 2;
 }
 
