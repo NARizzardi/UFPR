@@ -112,7 +112,7 @@ int main() {
 
   // Imprime resíduos
   for (long long int i = 0; i < p; ++i)
-    printf("%1.15e \n", fabs(y[i] - P(x[i],N,alpha)) );
+    printf("%1.15e ", fabs(y[i] - P(x[i],N,alpha)) );
   puts("");
 
   // Imprime os tempos
