@@ -36,7 +36,15 @@ void imprime_resultado(int tipo, int quantidade_interacoes, int ordem, double* r
  * Função para aplicação da solução por meio do Método de Eliminação de Gauss
 */
 void eliminacao_gauss(int ordem, double** matriz_entrada, double* coeficientes){
-  //imprime_resultado(0, 0, ordem);
+  for(int i = 0; i< ordem; ++i){
+    for(int k = i+1; k < ordem; k++){
+      double m = matriz_entrada[k][i] / matriz_entrada[i][i];
+      matriz_entrada[k][i] = 0.0;
+      for(int j = i+1; j < ordem; ++j)
+        matriz_entrada[k][j] -= matriz_entrada[i][j] * m;
+      coeficientes[k] -= coeficientes[i] * m;
+    }
+  }
 }
 
 
