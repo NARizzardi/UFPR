@@ -1,10 +1,10 @@
 # PROGRAMA
-    PROG = ajustePol gera_entrada
+    PROG = ajustePol ajustePol_v2 gera_entrada
 
 # Compilador
-    CC     = gcc -O3 -mavx -march=native
-    CFLAGS = 
-    LFLAGS = -lm
+    CC     = gcc
+    CFLAGS = -O3 -mavx -march=native -Wall -DLIKWID_PERFMON -I ${LIKWID_INCLUDE}
+    LFLAGS = -lm -L${LIKWID_LIB} -llikwid
 
 # Lista de arquivos para distribuição.
 # LEMBRE-SE DE ACRESCENTAR OS ARQUIVOS ADICIONAIS SOLICITADOS NO ENUNCIADO DO TRABALHO
@@ -13,7 +13,12 @@ DISTDIR = `basename ${PWD}`
 
 .PHONY: all clean purge dist
 
+all: $(PROG)
+
 ajustePol: ajustePol.c utils.c
+	$(CC) -o $@ $(CFLAGS) $^ $(LFLAGS)
+
+ajustePol_v2: ajustePol_v2.c utils.c
 	$(CC) -o $@ $(CFLAGS) $^ $(LFLAGS)
 
 gera_entrada: gera_entrada.c
