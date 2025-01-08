@@ -114,10 +114,10 @@ int main() {
     printf("%1.15e ", alpha[i]);
   puts("");
 
-  // Imprime resíduos
-  for (long long int i = 0; i < p; ++i)
-    printf("%1.15e ", fabs(y[i] - P(x[i],N,alpha)) );
-  puts("");
+  // // Imprime resíduos
+  // for (long long int i = 0; i < p; ++i)
+  //   printf("%1.15e ", fabs(y[i] - P(x[i],N,alpha)) );
+  // puts("");
 
   // Imprime os tempos
   printf("%lld %1.10e %1.10e\n", K, tSL, tEG);
