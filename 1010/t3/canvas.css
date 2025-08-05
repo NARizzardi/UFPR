@@ -1,0 +1,143 @@
+html, 
+body{
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-family:  'Roboto', helvetica,arial,sans-serif;
+}
+
+aside {
+    top: 0px;
+    left: 0px;
+	width: 14%;
+	height: 100%;
+    flex-shrink: 0;
+	position: fixed;
+	background-color:#2f4050;
+}
+ul{
+    padding: 0;
+    list-style-type: none;
+}
+
+aside a:link, aside a:visited{
+    padding: 15px;
+    display: block;
+    font-size: 0.8em;
+    color: #eceeee;
+    padding-left: 20px;    
+    text-decoration: none;
+}
+
+
+aside .active {
+    background-color: #18bc9c;
+}
+
+aside li a:hover {
+    transition: all 0.1s;
+    background-color: #13967d;
+}
+
+aside h2{
+    color: #eceeee;
+    text-align: center;
+}
+aside h3{
+    color: #18bc9c;
+    padding-left: 10px;
+}
+
+.pfp{
+    width: 84%;
+    height: width;
+    margin-left: 7%;
+    border-radius: 50%;
+    border-width: 2px;
+    border-style: groove;
+    border-color: #18bc9c;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.container{
+    width: 86%;
+    height: 100%;
+    margin-left: 14%;
+}
+
+.input{
+    display: flex;
+    padding-left: 15px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.submit{
+    display: flex;
+    justify-content: space-between;
+}
+/* canvas{
+        border: 1px solid black;
+} */
+
+
+/* 
+body {
+    background: radial-gradient(
+      ellipse at center,
+      #fffeea 0%,
+      #fffeea 35%,
+      #b7e8eb 100%
+    );
+    overflow: hidden; 
+}
+.ocean {
+    z-index: -1;
+    height: 5%;
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    background: #015871;
+}
+  .wave {
+    z-index: -1;
+    background: url(https://cdn.kcak11.com/codepen_assets/wave_animation/wave.svg)
+    repeat-x;
+    position: absolute;
+    top: -198px;
+    width: 6400px;
+    height: 198px;
+    animation: wave 7s cubic-bezier(0.36, 0.45, 0.63, 0.53) infinite;
+    transform: translate3d(0, 0, 0);
+}
+.wave:nth-of-type(2) {
+    top: -175px;
+    animation: wave 7s cubic-bezier(0.36, 0.45, 0.63, 0.53) -0.125s infinite,
+    swell 7s ease -1.25s infinite;
+    opacity: 1;
+}
+@keyframes wave {
+    0% {
+        margin-left: 0;
+    }
+    100% {
+        margin-left: -1600px;
+    }
+  }
+  @keyframes swell {
+    0%,
+    100% {
+        transform: translate3d(0, -25px, 0);
+    }
+    50% {
+        transform: translate3d(0, 5px, 0);
+    }
+}
+.endWave {
+    display: none;
+}
+
+*/

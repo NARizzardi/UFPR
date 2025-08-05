@@ -1,0 +1,16 @@
+python pela facilidade de mexer com sockets, codificar//decodificar mensagens além de facilidade em mexer com tuplas e listas
+
+
+protocolo = ip fonte da mensagem +  proximo ip do anel + tipo da mensagem  + dados (opcional)
+dados pode ser (dados) ou (destinatario final) + dados
+
+# tipos de mensagem
+# 0 - token (não tem dado)
+# 1 - jogador inicial (dado)
+# 2 - mao (destinatario + dados)
+# 3 - carta (destinatario + dados)
+
+todo começo de rodada cria um novo token no jogador 1 (quem organiza a rodada)
+todo começo de turno cria um novo token pra quem deve começar o turno
+cada jogo possui seu próprio controle da pontuação geral e das cartas levadas pra contagem de cada jogador 
+ viza viabilizar uma maior segurança pra não haver manipulação dos placares

@@ -1,0 +1,15 @@
+{
+  "files.associations": {
+    "*.html": "html",
+    "stdio.h": "c",
+    "ucontext.h": "c",
+    "ppos_data.h": "c",
+    "time.h": "c",
+    "backup": "c",
+    "signal.h": "c",
+    "type_traits": "c",
+    "tuple": "c",
+    "a": "c"
+  },
+  "makefile.configureOnOpen": true
+}

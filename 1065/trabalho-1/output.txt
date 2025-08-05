@@ -1,0 +1,8 @@
+grafo: paises
+167 vertices
+323 arestas
+6 componentes
+não bipartido
+diâmetros: 1 1 1 2 10 17
+vértices de corte: China Colombia CostaRica Cyprus France Germany Guatemala Honduras Indonesia Italy Malaysia Mexico Nicaragua NorthKorea Panama Russia SaudiArabia Senegal SouthAfrica Spain Thailand UnitedStates
+arestas de corte: Akrotiri Cyprus Brunei Malaysia Canada UnitedStates China HongKong China Macau Colombia Panama CostaRica Nicaragua CostaRica Panama Cyprus Dhekelia Denmark Germany DominicanRepublic Haiti France Monaco Gibraltar Spain Honduras Nicaragua Indonesia Malaysia Indonesia PapuaNewGuinea Indonesia Timor-Leste Ireland UnitedKingdom Italy SanMarino Italy VaticanCity Lesotho SouthAfrica Malaysia Thailand Mexico UnitedStates NetherlandsAntilles SaintMartin NorthKorea SouthKorea Portugal Spain Qatar SaudiArabia Senegal TheGambia

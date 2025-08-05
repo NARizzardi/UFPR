@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap');
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Roboto', Verdana, Geneva, Tahoma, sans-serif;
+    text-align: center;
+    background-color: #08D58E16;
+}
+
+h2{
+    padding-top: 0.83em;
+    margin-block-start: 0 !important;
+
+}
+
+table {
+    width: 90%;
+    border-collapse: collapse;
+    margin: 0 auto;
+}
+
+th,
+td {
+    border: 1px solid #bdc9c5;
+    padding: 18px;
+    border-radius: 0;
+}
+
+td {
+    cursor: pointer;
+    background-color: #fff;
+    color: #000;
+}
+
+td:hover {
+    background-color: #8b8b8b;
+    color: #fff;
+}
+
+th {
+    background-color: #C0E9ED;
+    color: #000;
+}
+
+.label {
+    border-radius: 5px;
+    padding: 6px;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-size: 16px;
+    color: #000;
+    transition: box-shadow 0.3s;
+    width: 12ch;
+    text-align: center;
+}
+
+.label:focus {
+    outline: none;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.botao {
+    border-radius: 5px;
+    padding: 7px;
+    font-size: 14px;
+    border: 0px;
+    background-color: #C0E9ED;
+    color: #000;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.botao:hover {
+    background-color: #36696E;
+    color: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.botao:active {
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    transition: box-shadow 0.1s ease-in-out;
+    background-color: #1e2020;
+}
+
+.voltar {
+    margin-top: 15px !important;
+    margin-left: 0px;
+    
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 1000px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.verde {
+    background-color: rgb(117, 255, 135);
+    color: #000;
+}
+
+.verde > .codigo {
+    color: #000;
+}
+
+.verde:hover {
+    background-color: #508968;
+    color: #000;
+}
+
+
+
+.azul {
+    background-color: #54b9c9;
+}
+
+.azul:hover {
+    background-color: #B5DEE8;
+    color: #000;
+}
+
+.vermelho {
+    background-color: #EB4B44;
+    color: #fff;
+}
+
+.vermelho:hover {
+    background-color: #FF7D75;
+}
+
+.vermelho > .codigo {
+    color: #fff;
+}
+
+.amarelo {
+    background-color: #FFC64F;
+}
+
+.amarelo:hover {
+    background-color: #FFD37A;
+    color: #000;
+}
+
+.preto {
+    background-color: #666666;
+    color: #fff;
+}
+
+.preto > .codigo {
+    color: #fff;
+}
+
+.branco {
+    background-color: #fff;
+}
+  
+.codigo {
+    font-weight: bold;
+    color: rgb(0, 0, 0);
+}

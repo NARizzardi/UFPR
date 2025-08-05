@@ -1,0 +1,16 @@
+cliente:
+imprimir o mapa
+verificar tipo do arquivo
+verificar se tem espaço pro arquivo
+abrir o arquivo
+
+
+servidor:
+pegar movimento do jogador
+processar movimento
+mandar info de mapa pro cliente
+imprimir lista de movimentos
+enviar os arquivos
+
+geral:
+timeout

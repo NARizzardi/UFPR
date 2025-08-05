@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="/nar20/processador-retas-poligonos/canvas.css">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retas e Polígonos</title>
+</head>
+
+<body onLoad="init()">
+  
+  <aside class="navbar">
+    <h2> Nicolas A. Rizzardi</h2>
+    <img class="pfp" src="/nar20/assets/pfp.jpg" alt="Foto de perfil">
+    <ul>
+      <li> <a href="/nar20/index.html"> Home </a> </li>
+    </ul>
+    <h3>Trabalhos CI1010</h3>
+    <ul>
+      <li  class="active"> <a href="/nar20/processador-retas-poligonos/index.html"  class="active">Retas e Poligonos</a> </li>
+      <li> <a href="/nar20/visualizeitor/index.html">Visualizeitor</a> </li>
+
+    </ul>
+    <h3>Pessoal</h3>
+    <ul>
+      <li> <a href="/nar20/projetos.html"> Projetos </a> </li>
+      <!-- <li> <a href="/nar20/recomendacoes.html"> Recomendações </a> </li> -->
+    </ul>
+
+  </aside>
+  <!-- <div class="ocean">
+    <div class="wave"></div>
+    <div class="wave"></div>
+
+  </div> -->
+  <div class="container">
+    <div class="input">
+      <label for="polygon">Quantos lados tem o seu polígono?</label>
+      <div class="submit">
+        <input id="lados" type="number" class="polygon" min="3" max="8" value="3">
+        <button class="submit" onclick="desenha_poligono()" >Criar</button>
+      </div>
+    </div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+        
+      
+      
+  
+<script src="/nar20/processador-retas-poligonos/canvas.js"></script>
+    
+</body>
+
+</html>

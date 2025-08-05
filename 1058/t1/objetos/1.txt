@@ -1,0 +1,2415 @@
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}
+#include "../include/servidor.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <sys/select.h>
+#include <net/ethernet.h> 
+#include <fcntl.h>
+
+client_state_t *lista_clientes = NULL;
+
+client_state_t* find_or_create_client_state(unsigned char *mac_addr) {
+    client_state_t *current = lista_clientes;
+    while (current != NULL) {
+        if (memcmp(current->mac_addr, mac_addr, ETH_ALEN) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+
+    client_state_t *new_client = (client_state_t*) malloc(sizeof(client_state_t));
+    if (!new_client) {
+        perror("malloc client_state");
+        return NULL;
+    }
+    memcpy(new_client->mac_addr, mac_addr, ETH_ALEN);
+    new_client->last_sequence = -1;
+    new_client->next = lista_clientes;
+    lista_clientes = new_client;
+    
+    return new_client;
+}
+
+
+int verifica_tipo (char buffer){
+    return ((buffer >> 4) & 0x0F);
+}  
+
+int move_jogador(mapa_t *mapa, int tipo){
+    int x_ant = mapa->posJogadorX;
+    int y_ant = mapa->posJogadorY;
+
+    if(tipo == DIREITA) mapa->posJogadorX++;
+    else if(tipo == ESQUERDA) mapa->posJogadorX--;
+    else if(tipo == CIMA) mapa->posJogadorY++;
+    else if(tipo == BAIXO) mapa->posJogadorY--;
+    
+    if(mapa->posJogadorX > 7 || mapa->posJogadorX < 0 || mapa->posJogadorY > 7 || mapa->posJogadorY < 0) {
+        mapa->posJogadorX = x_ant;
+        mapa->posJogadorY = y_ant;
+        return 0;
+    }
+    
+    return 1;
+}
+
+void cria_tesouro(tesouro_t *tesouro, int posX, int posY, int iterador) {
+    char nome_base[10];
+    char caminho_completo[256];
+    const char* extensoes[] = {".txt", ".jpg", ".mp4"};
+    int num_extensoes = sizeof(extensoes) / sizeof(extensoes[0]);
+    int encontrado = 0;
+    sprintf(nome_base, "%d", iterador);
+    for (int i = 0; i < num_extensoes; i++) {
+        snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s%s", nome_base, extensoes[i]);
+        struct stat st;
+        if (stat(caminho_completo, &st) == 0) {
+            encontrado = 1;
+            snprintf(tesouro->nome, sizeof(tesouro->nome), "%s%s", nome_base, extensoes[i]);
+            tesouro->tamanho = st.st_size;
+            tesouro->tipo = i;
+            break;
+        }
+    }
+    if (!encontrado) { strcpy(tesouro->nome, "INDEFINIDO"); tesouro->tamanho = 0; tesouro->tipo = -1; }
+    tesouro->coordenadaX = posX;
+    tesouro->coordenadaY = posY;
+    tesouro->coletado = 0;
+}
+
+int posicao_ocupada(int x, int y, int posx[], int posy[], int total) {
+    for (int i = 0; i < total; i++) {
+        if (posx[i] == x && posy[i] == y) return 1;
+    }
+    return 0;
+}
+
+mapa_t *gera_mapa(short int flag){
+    mapa_t *mapa = malloc(sizeof(mapa_t));
+    mapa->posJogadorX = 0; mapa->posJogadorY = 0; mapa->tesourosColetados = 0;
+    if(flag == 1) return mapa;
+    srand(time(NULL));
+    int totTesouros = 0;
+    int posx[8], posy[8];
+    while (totTesouros < 8) {
+        int x, y;
+        do{
+            x = (rand() % 8);
+            y = (rand() % 8);
+        } while(x == 0 && y == 0);
+        if (!posicao_ocupada(x, y, posx, posy, totTesouros)) {
+            posx[totTesouros] = x; posy[totTesouros] = y;
+            cria_tesouro(&mapa->tesouros[totTesouros], x, y, totTesouros + 1);
+            totTesouros++;
+        }
+    }
+
+    printf("\n--- Posições dos Tesouros Geradas ---\n");
+    for (int i = 0; i < 8; i++) {
+        printf("Tesouro %d: (%d, %d)\n", i+1, mapa->tesouros[i].coordenadaX, mapa->tesouros[i].coordenadaY);
+    }
+    printf("------------------------------------------\n\n");
+
+    return mapa;     
+} 
+
+int encontra_tesouro(mapa_t *m){
+    for(int i = 0; i < 8; i++){
+        if(m->tesouros[i].coordenadaX == m->posJogadorX && m->tesouros[i].coordenadaY == m->posJogadorY){
+            if(m->tesouros[i].coletado == 1) return -1;
+            m->tesouros[i].coletado = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+unsigned int extrai_sequencia_do_buffer(const char *buffer) {
+    unsigned char byte1 = buffer[1];
+    unsigned char byte2 = buffer[2];
+    return ((byte1 >> 7) & 0x01) << 4 | (byte2 & 0x0F);
+}
+
+
+void enviar_tesouro(int soquete, struct sockaddr_ll endereco_cliente, tesouro_t* tesouro) {
+    printf("-> Iniciando processo de envio do tesouro '%s'.\n", tesouro->nome);
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    mensagem_t msg_resposta;
+
+    unsigned int tipo_anuncio;
+    switch (tesouro->tipo) {
+        case 0: tipo_anuncio = TEXTOACKNOME; break;
+        case 1: tipo_anuncio = IMAGEMACKNOME; break;
+        case 2: tipo_anuncio = VIDEOACKNOME; break;
+        default:
+            fprintf(stderr, "Erro: Tipo de tesouro desconhecido (%d).\n", tesouro->tipo);
+            return;
+    }
+
+    char dados_anuncio[TAMANHO_DADOS];
+    snprintf(dados_anuncio, sizeof(dados_anuncio), "%s %u", tesouro->nome, tesouro->tamanho);
+    unsigned int seq_arquivo = 0;
+
+    while (1) {
+        printf("Enviando anúncio do arquivo: %s\n", dados_anuncio);
+        monta_buffer(buffer_envio, tipo_anuncio, seq_arquivo, dados_anuncio, strlen(dados_anuncio));
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        struct timeval timeout = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds, NULL, NULL, &timeout) > 0) {
+            struct sockaddr_ll addr_temp;
+            if (recebe_mensagem(soquete, buffer_recebido, &addr_temp) > 0) {
+                if (addr_temp.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK) {
+                    seq_arquivo++;
+                    printf("ACK recebido para anúncio. Cliente tem espaço. Iniciando transferência.\n");
+                    break;
+                } else if (msg_resposta.tipo == NACK) {
+                    printf("NACK recebido. Transferência cancelada pelo cliente (sem espaço).\n");
+                    return;
+                }
+            }
+        } else {
+            printf("Timeout esperando ACK/NACK do anúncio. Retransmitindo...\n");
+        }
+    }
+
+    char caminho_completo[256];
+    snprintf(caminho_completo, sizeof(caminho_completo), "objetos/%s", tesouro->nome);
+    FILE *arquivo = fopen(caminho_completo, "rb");
+    if (!arquivo) {
+        perror("fopen");
+        return;
+    }
+
+    char dados_arquivo[TAMANHO_DADOS];
+    size_t bytes_lidos;
+
+    while ((bytes_lidos = fread(dados_arquivo, 1, TAMANHO_DADOS, arquivo)) > 0) {
+        while(1) {
+            printf("Enviando pacote de dados #%u (%zu bytes).\n", seq_arquivo, bytes_lidos);
+            printf("sequencia %u\n", seq_arquivo);
+            monta_buffer(buffer_envio, DADOS, seq_arquivo, dados_arquivo, bytes_lidos);
+            envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+            fd_set fds_dados;
+            FD_ZERO(&fds_dados);
+            FD_SET(soquete, &fds_dados);
+            struct timeval timeout_dados = { .tv_sec = 2, .tv_usec = 0 };
+
+            if (select(soquete + 1, &fds_dados, NULL, NULL, &timeout_dados) > 0) {
+                 struct sockaddr_ll temp_addr;
+                 if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0){
+                    if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                    remonta_mensagem(&msg_resposta, buffer_recebido);
+                    if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                        break;
+                    }
+                 }
+            } else {
+                printf("Timeout esperando ACK para o pacote #%u. Retransmitindo...\n", seq_arquivo);
+            }
+        }
+        seq_arquivo++;
+    }
+
+    while(1) {
+        printf("Enviando mensagem de Fim de Arquivo.\n");
+        monta_buffer(buffer_envio, ENDOFFILE, seq_arquivo, NULL, 0);
+        envia_buffer(soquete, endereco_cliente, buffer_envio, TAMANHO_BUFFER);
+
+        fd_set fds_fim;
+        FD_ZERO(&fds_fim);
+        FD_SET(soquete, &fds_fim);
+        struct timeval timeout_fim = { .tv_sec = 2, .tv_usec = 0 };
+
+        if (select(soquete + 1, &fds_fim, NULL, NULL, &timeout_fim) > 0) {
+            struct sockaddr_ll temp_addr;
+            if(recebe_mensagem(soquete, buffer_recebido, &temp_addr) > 0) {
+                if (temp_addr.sll_pkttype == PACKET_OUTGOING) continue;
+                remonta_mensagem(&msg_resposta, buffer_recebido);
+                if (msg_resposta.tipo == ACK && msg_resposta.sequencia == seq_arquivo) {
+                    break;
+                }
+            }
+        } else {
+             printf("Timeout esperando ACK para FIM_ARQUIVO. Retransmitindo...\n");
+        }
+    }
+
+    fclose(arquivo);
+    printf("Transferência do tesouro '%s' concluída com sucesso.\n", tesouro->nome);
+}
+
+int main(){
+    int soquete = cria_raw_socket(INTERFACE);
+    if(soquete < 0) return 1;
+
+    int flags = fcntl(soquete, F_GETFL, 0);
+    if (flags == -1) { perror("fcntl F_GETFL"); return 1; }
+    if (fcntl(soquete, F_SETFL, flags | O_NONBLOCK) == -1) { perror("fcntl F_SETFL O_NONBLOCK"); return 1; }
+    
+    char temp_buffer[TAMANHO_BUFFER];
+    while(recv(soquete, temp_buffer, sizeof(temp_buffer), 0) > 0);
+    
+    if (fcntl(soquete, F_SETFL, flags) == -1) { perror("fcntl F_SETFL original_flags"); return 1; }
+
+    char buffer_envio[TAMANHO_BUFFER];
+    char buffer_recebido[TAMANHO_BUFFER];
+    
+    mensagem_t mensagem;
+    mapa_t *m = gera_mapa(0);
+
+    fd_set fds;
+    struct timeval timeout;
+    
+    printf("Servidor iniciado e aguardando pacotes...\n");
+    
+
+    
+    while(1){
+        FD_ZERO(&fds);
+        FD_SET(soquete, &fds);
+        timeout.tv_sec = 20;
+        timeout.tv_usec = 0;
+
+        int rv = select(soquete + 1, &fds, NULL, NULL, &timeout);
+        
+        if(rv > 0) {
+            struct sockaddr_ll endereco_origem = {0};
+
+            if (recebe_mensagem(soquete, buffer_recebido, &endereco_origem) < 0) continue;
+            if (endereco_origem.sll_pkttype == PACKET_OUTGOING) continue;
+
+            remonta_mensagem(&mensagem, buffer_recebido);
+            
+            client_state_t *cliente = find_or_create_client_state(endereco_origem.sll_addr);
+            if (!cliente) continue;
+
+            int is_move_command = (mensagem.tipo >= DIREITA) && (mensagem.tipo <= ESQUERDA);
+            int is_new_packet = (unsigned char)(mensagem.sequencia - cliente->last_sequence) > 0;
+
+            if (is_new_packet && is_move_command) {
+                cliente->last_sequence = mensagem.sequencia;
+                
+                if(move_jogador(m, mensagem.tipo)){
+                    printf("Jogador moveu para (%d, %d)\n", m->posJogadorX, m->posJogadorY);
+                } else {
+                    printf("Jogador tentou um movimento inválido.\n");
+                }
+                
+                int indice_tesouro = encontra_tesouro(m);
+                if(indice_tesouro != -1){
+                    m->tesourosColetados++;
+                    printf("Jogador encontrou um tesouro! (índice: %d)\n", indice_tesouro);
+                    enviar_tesouro(soquete, endereco_origem, &m->tesouros[indice_tesouro]);
+                }
+                printf("antes payload\n");
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, indice_tesouro);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                printf("payload: %s | sequencia: %u\n", payload, mensagem.sequencia);
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+                printf("depois payload\n");
+            } else if (!is_new_packet && is_move_command) {
+                char payload[20] = {0};
+                sprintf(payload, "%d %d %d", m->posJogadorX, m->posJogadorY, -1);
+                monta_buffer(buffer_envio, ACKOK, mensagem.sequencia, payload, strlen(payload));
+                envia_buffer(soquete, endereco_origem, buffer_envio, TAMANHO_BUFFER);
+            }
+        }
+        else if (rv == -1) {
+            perror("select");
+            break;
+        }
+    }
+    
+    client_state_t* temp;
+    while(lista_clientes != NULL) {
+        temp = lista_clientes;
+        lista_clientes = lista_clientes->next;
+        free(temp);
+    }
+
+    free(m);
+    close(soquete);
+    return 0;
+}

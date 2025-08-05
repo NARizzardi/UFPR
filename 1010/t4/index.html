@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grade</title>
+
+  <link rel="stylesheet" href="./visualizeitor.css">
+</head>
+
+<body>
+  <h2>Grade Curricular</h2>
+  <input class="label" type="text" id="matricula" placeholder="GRR">
+  <input class="botao" type="button" onclick="busca()" value="BUSCAR">
+  <br />
+  <br />
+
+  <table>
+    <thead>
+      <tr>
+        <th>1º Período</th>
+        <th>2º Período</th>
+        <th>3º Período</th>
+        <th>4º Período</th>
+        <th>5º Período</th>
+        <th>6º Período</th>
+        <th>7º Período</th>
+        <th>8º Período</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="CI068" class="tableCell"><span class="codigo">CI068</span><br /> Circuitos Lógicos</td>
+        <td id="CI210" class="tableCell"><span class="codigo">CI210</span><br /> Projetos Digitais e Microprocessadores</td>
+        <td id="CI212" class="tableCell"><span class="codigo">CI212</span><br /> Organização e Arquitetura de Computadores</td>
+        <td id="CI215" class="tableCell"><span class="codigo">CI215</span><br /> Sistemas Operacionais</td>
+        <td id="CI162" class="tableCell"><span class="codigo">CI162</span><br /> Engenharia de Requisitos</td>
+        <td id="CI163" class="tableCell"><span class="codigo">CI163</span><br /> Projeto de Software</td>
+        <td id="CI221" class="tableCell"><span class="codigo">CI221</span><br /> Engenharia de Software</td>
+        <td id="OPT3" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+      </tr>
+      <tr>
+        <td id="CI055" class="tableCell"><span class="codigo">CI055</span><br /> Algoritmos e Estruturas de Dados I</td>
+        <td id="CI056" class="tableCell"><span class="codigo">CI056</span><br /> Algoritmos e Estruturas de Dados II</td>
+        <td id="CI057" class="tableCell"><span class="codigo">CI057</span><br /> Algoritmos e Estruturas de Dados III</td>
+        <td id="CI062" class="tableCell"><span class="codigo">CI062</span><br /> Técnicas Alternativas de Programação</td>
+        <td id="CI065" class="tableCell"><span class="codigo">CI065</span><br /> Algoritmos e Teoria dos Grafos</td>
+        <td id="CI165" class="tableCell"><span class="codigo">CI165</span><br /> Análise de Algoritmos</td>
+        <td id="CI211" class="tableCell"><span class="codigo">CI211</span><br /> Construção de Compiladores</td>
+        <td id="OPT4" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+      </tr>
+      <tr>
+        <td id="CM046" class="tableCell"><span class="codigo">CM046</span><br /> Introdução a Álgebra</td>
+        <td id="CI067" class="tableCell"><span class="codigo">CI067</span><br /> Oficina de Computação</td>
+        <td id="CI064" class="tableCell"><span class="codigo">CI064</span><br /> Software Básico</td>
+        <td id="CE003" class="tableCell"><span class="codigo">CE003</span><br /> Estatística II</td>
+        <td id="CI059" class="tableCell"><span class="codigo">CI059</span><br /> Introdução à Teoria da Computação</td>
+        <td id="CI209" class="tableCell"><span class="codigo">CI209</span><br /> Inteligência Artificial</td>
+        <td id="OPT1" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+        <td id="OPT5" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+      </tr>
+      <tr>
+        <td id="CM045" class="tableCell"><span class="codigo">CM045</span><br /> Geometria Analítica I</td>
+        <td id="CM005" class="tableCell"><span class="codigo">CM005</span><br /> Álgebra Linear</td>
+        <td id="CI237" class="tableCell"><span class="codigo">CI237</span><br /> Matemática Discreta</td>
+        <td id="CI058" class="tableCell"><span class="codigo">CI058</span><br /> Redes de Computadores I</td>
+        <td id="CI061" class="tableCell"><span class="codigo">CI061</span><br /> Redes de Computadores II</td>
+        <td id="CI218" class="tableCell"><span class="codigo">CI218</span><br /> Sistemas de Bancos de Dados</td>
+        <td id="OPT2" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+        <td id="OPT6" class="tableCell"><span class="codigo">OPT</span><br /> Optativa</td>
+      </tr>
+      <tr>
+        <td id="CM201" class="tableCell"><span class="codigo">CM201</span><br /> Cálculo Diferencial e Integral I</td>
+        <td id="CM202" class="tableCell"><span class="codigo">CM202</span><br /> Cálculo Diferencial e Integral II</td>
+        <td id="CI166" class="tableCell"><span class="codigo">CI166</span><br /> Metodologia Científica</td>
+        <td id="CI164" class="tableCell"><span class="codigo">CI164</span><br /> Introdução à Computação Científica</td>
+        <td id="SA214" class="tableCell"><span class="codigo">SA214</span><br /> Introdução a Teoria Geral da Administração</td>
+        <td id="CI220" class="tableCell"><span class="codigo">CI220</span><br /> Teoria de Sistemas</td>
+        <td id="TG1" class="tableCell"><span class="codigo">TG1</span><br /> Trabalho de Graduação I</td>
+        <td id="TG2" class="tableCell"><span class="codigo">TG2</span><br /> Trabalho de Graduação II</td>
+      </tr>
+    </tbody>
+
+  </table>
+  <input class="botao voltar" type="button" onclick="voltar()" value="Voltar para a página inicial">
+  <!-- <br /> -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <!-- <h2>Meu Modal</h2> -->
+      <table id="tabelaHistorico">
+        <thead>
+          <tr>
+            <th>Código</th>
+            <th>Disciplina</th>
+            <th>Ano</th>
+            <th>Período</th>
+            <th>Frequência</th>
+            <th>Situação</th>
+            <th>Nota final</th>
+          </tr>
+        </thead>
+        <tbody>
+
+        </tbody>
+    </div>
+  </div>
+
+
+  <script src="./visualizeitor.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</body>
+
+</html>
